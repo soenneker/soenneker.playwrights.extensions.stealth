@@ -1,7 +1,7 @@
 ﻿using Microsoft.Playwright;
 using Soenneker.Extensions.Task;
 using System.Collections.Generic;
-using System.Text;
+using System.Globalization;
 using System.Threading.Tasks;
 
 namespace Soenneker.Playwrights.Extensions.Stealth;
@@ -11,11 +11,25 @@ namespace Soenneker.Playwrights.Extensions.Stealth;
 /// </summary>
 public static class PlaywrightsStealthExtension
 {
-    public static async Task<IBrowserContext> CreateStealthContext(this IBrowser browser, string timeZone = "America/New_York", Proxy? proxy = null)
-    {
-        var profile = HardwareProfile.Generate(timeZone);
+    public static Task<IBrowser> LaunchStealthChromium(this IPlaywright pw) =>
+        pw.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+        {
+            Channel = "chromium",
+            Args =
+            [
+                "--disable-blink-features=AutomationControlled",
+                "--enable-quic",
+                "--origin-to-force-quic-on=*",
+                "--use-gl=desktop",
+                "--no-sandbox"
+            ]
+        });
 
-        BrowserNewContextOptions options = BuildContextOptions(profile, timeZone, proxy);
+    public static async Task<IBrowserContext> CreateStealthContext(this IBrowser browser, Proxy? proxy = null)
+    {
+        var profile = HardwareProfile.Generate();
+
+        BrowserNewContextOptions options = BuildContextOptions(profile, proxy);
         IBrowserContext context = await browser.NewContextAsync(options).NoSync();
 
         // add all patches BEFORE the page loads
@@ -24,26 +38,30 @@ public static class PlaywrightsStealthExtension
         return context;
     }
 
-    private static BrowserNewContextOptions BuildContextOptions(HardwareProfile p, string tz, Proxy? proxy)
+    private static BrowserNewContextOptions BuildContextOptions(HardwareProfile p, Proxy? proxy)
     {
-        string ua = $"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " + $"Chrome/{p.ChromeVersion} Safari/537.36";
+        string ua = $"Mozilla/5.0 (Windows NT 10.0; Win64; x64) " + $"AppleWebKit/537.36 (KHTML, like Gecko) " + $"Chrome/{p.ChromeVersion} Safari/537.36";
 
         var headers = new Dictionary<string, string>
         {
+            ["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
             ["Accept-Language"] = "en-US,en;q=0.9",
             ["Upgrade-Insecure-Requests"] = "1",
-            // UA‑Client‑Hints (network side!)
-            ["sec-ch-ua"] = $"\"Chromium\";v=\"114\", \"Google Chrome\";v=\"114\", \"Not;A=Brand\";v=\"99\"",
+            ["Accept-Encoding"] = "gzip, deflate, br", // chrome 114 aligned
+            ["sec-ch-ua"] = "\"Chromium\";v=\"114\", \"Google Chrome\";v=\"114\", \"Not;A=Brand\";v=\"99\"",
             ["sec-ch-ua-mobile"] = "?0",
             ["sec-ch-ua-platform"] = "\"Windows\"",
-            ["sec-ch-ua-full-version"] = $"\"{p.ChromeVersion}\""
+            ["sec-ch-ua-full-version-list"] = $"\"Chromium\";v=\"{p.ChromeVersion}\", \"Google Chrome\";v=\"{p.ChromeVersion}\", \"Not;A=Brand\";v=\"99\"",
+            ["sec-ch-ua-arch"] = "\"x86\"",
+            ["sec-ch-ua-bitness"] = "\"64\""
         };
 
         return new BrowserNewContextOptions
         {
             UserAgent = ua,
             Locale = "en-US",
-            TimezoneId = tz,
+            TimezoneId = p.TimeZone,
+            DeviceScaleFactor = 1,
             ViewportSize = new ViewportSize {Width = p.ScreenW, Height = p.ScreenH},
             ExtraHTTPHeaders = headers,
             Proxy = proxy
@@ -52,126 +70,161 @@ public static class PlaywrightsStealthExtension
 
     private static string BuildInitScript(HardwareProfile p)
     {
-        var b = new StringBuilder();
+        var lat = p.Latitude.ToString("F5", CultureInfo.InvariantCulture);
+        var lng = p.Longitude.ToString("F5", CultureInfo.InvariantCulture);
 
-        // helper for deterministic noise
-        b.Append($@"
-        (() => {{
-            let seed = {p.Seed};
-            const rand = () => (Math.sin(seed++) + 1) / 2;
+        return $$$$"""
+                   (()=>{
+                       let seed={{{{p.Seed}}}};
+                       const rand = () => ((Math.sin(seed++) + 1) / 2);
 
-            // ---------- navigator.webdriver ----------
-            Object.defineProperty(navigator,'webdriver',{{ get:()=>undefined }});
+                       /* webdriver flag */
+                       Object.defineProperty(navigator,'webdriver',{get:()=>undefined});
 
-            // ---------- hardware ----------
-            Object.defineProperty(navigator,'hardwareConcurrency',{{ get:()=>{p.Cores} }});
-            Object.defineProperty(navigator,'deviceMemory',      {{ get:()=>{p.MemoryGb} }});
-            Object.defineProperty(navigator,'platform',          {{ get:()=>'{p.Platform}' }});
+                       /* classic navigator props */
+                       Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>{{{{p.Cores}}}}});
+                       Object.defineProperty(navigator,'deviceMemory',{get:()=>{{{{p.MemoryGb}}}}});
+                       Object.defineProperty(navigator,'platform',{get:()=>'{{{{p.Platform}}}}'});
+                       Object.defineProperty(navigator,'vendor',{get:()=>'Google Inc.'});
 
-            // ---------- userAgentData ----------
-            const brands = [
-                {{brand:'Chromium', version:'114'}},
-                {{brand:'Google Chrome', version:'114'}},
-                {{brand:'Not;A=Brand', version:'99'}}
-            ];
-            const uaData = {{
-                brands,
-                mobile:false,
-                platform:'Windows',
-                getHighEntropyValues: async hints => {{
-                    const map = {{
-                        architecture:'x86',
-                        model:'',
-                        platformVersion:'15.0.0',
-                        uaFullVersion:'{p.ChromeVersion}',
-                        bitness:'64',
-                        fullVersionList:brands
-                    }};
-                    return Object.fromEntries(hints.map(h=>[h,map[h]]));
-                }}
-            }};
-            Object.defineProperty(navigator,'userAgentData',{{ get:()=>uaData }});
+                       /* window outer dims (viewport + chrome) – DPI aware */
+                       Object.defineProperty(window,'outerWidth',{get:()=>{{{{p.ScreenW}}}}});
+                       Object.defineProperty(window,'outerHeight',{get:()=>{
+                           const chromeBar = Math.min(Math.max(70, 85*window.devicePixelRatio), 115);
+                           return {{{p.ScreenH}}} + chromeBar;
+                       }});
 
-            // ---------- window.chrome ----------
-            window.chrome = {{
-                runtime:{{}},
-                app:{{ isInstalled:false }},
-                webstore:{{ onInstallStageChanged:{{addListener:()=>{{}}}}, onDownloadProgress:{{addListener:()=>{{}}}}}}
-            }};
+                       /* UA‑CH high‑entropy shim */
+                       const brands=[
+                           {brand:'Chromium',version:'114'},
+                           {brand:'Google Chrome',version:'114'},
+                           {brand:'Not;A=Brand',version:'99'}
+                       ];
+                       const uaData={
+                           brands,
+                           mobile:false,
+                           platform:'Windows',
+                           getHighEntropyValues:async h=>Object.fromEntries(
+                               h.map(x=>[x,{
+                                   architecture:'x86',
+                                   model:'',
+                                   bitness:'64',
+                                   platformVersion:'15.0.0',
+                                   uaFullVersion:'{{{{p.ChromeVersion}}}}',
+                                   fullVersionList:brands
+                               }[x]]))
+                       };
+                       Object.defineProperty(navigator,'userAgentData',{get:()=>uaData});
 
-            // ---------- permissions shim ----------
-            const permQuery = navigator.permissions.query;
-            navigator.permissions.query = function(args){{
-                const delay = 20 + rand()*30;
-                return new Promise(r => setTimeout(() => r(
-                    args && args.name === 'notifications'
-                        ? {{ state: Notification.permission }}
-                        : permQuery.call(this,args)
-                ), delay));
-            }};
+                       /* window.chrome stub */
+                       window.chrome={
+                           runtime:{},
+                           webstore:{
+                               onInstallStageChanged:{addListener:()=>{}},
+                               onDownloadProgress:{addListener:()=>{}}
+                           }
+                       };
 
-            // ---------- conn ----------
-            Object.defineProperty(navigator,'connection',{{ value:{{ downlink:10, effectiveType:'4g', rtt:50, saveData:false }} }});
+                       /* permissions latency shim (clone for instanceof safety) */
+                       const realQuery = navigator.permissions.query.bind(navigator.permissions);
+                       navigator.permissions.query = d => new Promise(res=>{
+                           setTimeout(async ()=>{
+                               const r = await realQuery(d);
+                               res({state:r.state,onchange:null});
+                           },20+rand()*30);
+                       });
 
-            // ---------- timezone (Intl) ----------
-            const origDTF = Intl.DateTimeFormat;
-            Intl.DateTimeFormat = function(...args){{
-                const dtf = new origDTF(...args);
-                const ro  = dtf.resolvedOptions();
-                Object.defineProperty(ro,'timeZone',{{ get:()=>'{p.Platform}' }});
-                dtf.resolvedOptions = () => ro;
-                return dtf;
-            }};
+                       /* navigator.connection (extra fields) */
+                       Object.defineProperty(navigator,'connection',{ get: () => ({
+                           downlink    : 10 + rand()*40,
+                           downlinkMax : 100,
+                           effectiveType:'4g',
+                           rtt         : Math.round(40 + rand()*120),
+                           saveData    : false
+                       })});
 
-            // ---------- media devices ----------
-            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices){{
-                navigator.mediaDevices.enumerateDevices = async () => ([
-                    {{deviceId:'default',groupId:'audio1',kind:'audioinput', label:'Microphone'}},
-                    {{deviceId:'default',groupId:'audio1',kind:'audiooutput',label:'Speaker'}},
-                    {{deviceId:'default',groupId:'vid1',kind:'videoinput',   label:'Integrated Camera'}}
-                ]);
-            }}
+                       /* Battery API */
+                       navigator.getBattery = () => Promise.resolve({
+                           charging:true,
+                           chargingTime:0,
+                           dischargingTime:Infinity,
+                           level:0.77,
+                           onchargingchange:null,
+                           onlevelchange:null,
+                           onchargingtimechange:null,
+                           ondischargingtimechange:null
+                       });
 
-            // ---------- font fingerprint ----------
-            if (document.fonts) {{
-                const orig = document.fonts;
-                const fake = new Set(orig);
-                ['Arial','Courier New','Times New Roman','Segoe UI'].forEach(f=>fake.add(f));
-                Object.defineProperty(document,'fonts',{{ value: fake }});
-            }}
+                       /* Intl timezone coherence */
+                       const origDTF = Intl.DateTimeFormat;
+                       Intl.DateTimeFormat = function(...a){
+                           const dtf = new origDTF(...a);
+                           const ro  = dtf.resolvedOptions();
+                           Object.defineProperty(ro,'timeZone',{get:()=>'{{{{p.TimeZone}}}}'});
+                           dtf.resolvedOptions = () => ro;
+                           return dtf;
+                       };
 
-            // ---------- canvas noise ----------
-            const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
-            HTMLCanvasElement.prototype.toDataURL = function(...args){{
-                const ctx = this.getContext('2d');
-                if (ctx && ctx.globalAlpha){{
-                    ctx.globalAlpha = 0.9997 + rand()*0.0002;
-                }}
-                return origToDataURL.apply(this,args);
-            }};
+                       /* FontFaceSet proxy */
+                       if(document.fonts && window.FontFaceSet){
+                           const orig   = document.fonts;
+                           const extras = ['Arial','Courier New','Times New Roman','Segoe UI'];
+                           const proxy  = new Proxy(orig,{
+                               get:(t,p)=>
+                                   p==='size'  ? t.size + extras.length :
+                                   p==='values'? ()=>[...t.values(),...extras.map(f=>new FontFace(f,'local("'+f+'")'))] :
+                                                 Reflect.get(t,p)
+                           });
+                           Object.defineProperty(document,'fonts',{value:proxy});
+                       }
 
-            // ---------- WebGL vendor ----------
-            const getParam = WebGLRenderingContext.prototype.getParameter;
-            WebGLRenderingContext.prototype.getParameter = function(p){{
-                if (p===37445) return 'Intel Inc.';
-                if (p===37446) return 'Intel Iris OpenGL Engine';
-                return getParam.call(this,p);
-            }};
+                       /* media devices list */
+                       if(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices){
+                           navigator.mediaDevices.enumerateDevices = async () => ([
+                               {deviceId:'default',groupId:'aud1',kind:'audioinput', label:'Microphone'},
+                               {deviceId:'default',groupId:'aud1',kind:'audiooutput',label:'Speaker'},
+                               {deviceId:'default',groupId:'vid1',kind:'videoinput', label:'Integrated Camera'}
+                           ]);
+                       }
 
-            // ---------- WebRTC leak ----------
-            const pc = RTCPeerConnection.prototype;
-            ['createOffer','createAnswer'].forEach(fn => {{
-                const orig = pc[fn];
-                pc[fn] = function(...a){{
-                    return orig.apply(this,a).then(desc => {{
-                        if (desc && desc.sdp) desc.sdp = desc.sdp.replace(/a=candidate:.+\\r?\\n/g,'');
-                        return desc;
-                    }});
-                }};
-            }});
-            Object.defineProperty(pc,'localDescription',{{ get:()=>null }});
-        }})();");
+                       /* geolocation */
+                       const position = {
+                           coords:{latitude:{{{{lat}}}},longitude:{{{{lng}}}},accuracy:25},
+                           timestamp:Date.now()
+                       };
+                       navigator.geolocation ??={};
+                       navigator.geolocation.getCurrentPosition = cb => setTimeout(()=>cb(position),200+rand()*300);
+                       navigator.geolocation.watchPosition      = cb => (cb(position),1);
 
-        return b.ToString();
+                       /* canvas noise */
+                       const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+                       HTMLCanvasElement.prototype.toDataURL = function(...a){
+                           const ctx=this.getContext('2d');
+                           if(ctx && ctx.globalAlpha) ctx.globalAlpha = 0.9997 + rand()*0.0002;
+                           return origToDataURL.apply(this,a);
+                       };
+
+                       /* WebGL vendor spoof */
+                       const getParam = WebGLRenderingContext.prototype.getParameter;
+                       WebGLRenderingContext.prototype.getParameter = function(p){
+                           if(p===37445) return 'Intel Inc.';
+                           if(p===37446) return 'Intel Iris OpenGL Engine';
+                           return getParam.call(this,p);
+                       };
+
+                       /* WebRTC leak block */
+                       const pc = RTCPeerConnection.prototype;
+                       ['createOffer','createAnswer'].forEach(fn=>{
+                           const o = pc[fn];
+                           pc[fn] = function(...a){
+                               return o.apply(this,a).then(d=>{
+                                   if(d && d.sdp) d.sdp = d.sdp.replace(/a=candidate:.+\r?\n/g,'');
+                                   return d;
+                               });
+                           };
+                       });
+                       Object.defineProperty(pc,'localDescription',{get:()=>null});
+                   })();
+                   """;
     }
 }
