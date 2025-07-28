@@ -1,0 +1,118 @@
+﻿name: publish-package
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'test/**'
+
+env:
+    "PipelineEnvironment": true
+
+jobs:
+  publish-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setting up build version
+        run: |
+          version=$(($GITHUB_RUN_NUMBER))
+          echo "BUILD_VERSION=3.0.$version" >> ${GITHUB_ENV}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Install dependencies with retry
+        run: |
+          retries=5
+          base_wait_time=15
+          exponent=2
+
+          for i in $(seq 1 $retries); do
+            if dotnet restore; then
+              break
+            fi
+
+            if [ $i -lt $retries ]; then
+              wait_time=$(awk "BEGIN {print int($base_wait_time * ($exponent ^ ($i - 1)))}")
+              echo "dotnet restore failed, retrying in $wait_time seconds..."
+              sleep $wait_time
+            else
+              echo "dotnet restore failed after $retries retries."
+              exit 1
+            fi
+          done
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test test/Soenneker.Playwrights.Extensions.Stealth.Tests/Soenneker.Playwrights.Extensions.Stealth.Tests.csproj --no-restore --verbosity normal
+
+      - name: Pack
+        run: dotnet pack --no-build --configuration Release --output .
+
+      - name: Publish to NuGet with retry
+        run: |
+          nupkg_files=$(find . -name "*.nupkg")
+          retries=5
+          base_wait_time=20 
+          exponent=3.5
+          
+          for i in $(seq 1 $retries); do
+            if dotnet nuget push $nupkg_files --source 'https://api.nuget.org/v3/index.json' --api-key ${{secrets.NUGET__TOKEN}} --skip-duplicate; then
+              break
+            fi
+            
+            if [ $i -lt $retries ]; then
+              wait_time=$(awk "BEGIN {print int($base_wait_time * ($exponent ^ ($i - 1)))}")
+              echo "NuGet publish failed, retrying in $wait_time seconds..."
+              sleep $wait_time
+            else
+              echo "NuGet publish failed after $retries retries."
+              exit 1
+            fi
+          done
+
+      - name: Add GitHub NuGet Source
+        run: |
+          dotnet nuget add source https://nuget.pkg.github.com/soenneker/index.json \
+            --name "github" \
+            --username "any" \
+            --password ${{ secrets.GH__TOKEN }} \
+            --store-password-in-clear-text
+
+      - name: Publish to GitHub Packages
+        run: |
+          dotnet nuget push ./*.nupkg \
+            --source "github" \
+            --api-key ${{ secrets.GH__TOKEN }}
+
+      - name: Create GitHub Release
+        run: |
+          changelog=$(git log -20 --pretty=format:"- %s")
+          tag_name="v$BUILD_VERSION"
+
+          json_payload=$(
+            jq -n \
+              --arg tag_name "$tag_name" \
+              --arg name "$tag_name" \
+              --arg body "$changelog" \
+              '{
+                tag_name: $tag_name,
+                name: $name,
+                body: $body,
+                draft: false,
+                prerelease: false
+              }'
+          )
+
+          curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.GH__TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/releases \
+            -d "$json_payload"
