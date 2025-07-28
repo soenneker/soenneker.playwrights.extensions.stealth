@@ -19,7 +19,6 @@ public static class PlaywrightsStealthExtension
             [
                 "--disable-blink-features=AutomationControlled",
                 "--enable-quic",
-                "--origin-to-force-quic-on=*",
                 "--use-gl=desktop",
                 "--no-sandbox"
             ]
