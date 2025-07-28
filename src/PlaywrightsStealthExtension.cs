@@ -25,7 +25,7 @@ public static class PlaywrightsStealthExtension
             ]
         });
 
-    public static async Task<IBrowserContext> CreateStealthContext(this IBrowser browser, Proxy? proxy = null)
+    public static async ValueTask<IBrowserContext> CreateStealthContext(this IBrowser browser, Proxy? proxy = null)
     {
         var profile = HardwareProfile.Generate();
 
