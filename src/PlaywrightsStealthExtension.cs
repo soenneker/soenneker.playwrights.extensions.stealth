@@ -11,19 +11,49 @@ namespace Soenneker.Playwrights.Extensions.Stealth;
 /// </summary>
 public static class PlaywrightsStealthExtension
 {
-    public static Task<IBrowser> LaunchStealthChromium(this IPlaywright pw) =>
-        pw.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
-        {
-            Channel = "chromium",
-            Args =
-            [
-                "--disable-blink-features=AutomationControlled",
-                "--enable-quic",
-                "--use-gl=desktop",
-                "--no-sandbox"
-            ]
-        });
+    static readonly string[] DefaultInitializationArgs = [
+        "--disable-blink-features=AutomationControlled",
+        "--enable-quic",
+        "--use-gl=desktop",
+        "--no-sandbox"
+    ];
 
+    /// <summary>
+    /// Launches a Chromium browser instance with stealth configurations.
+    /// </summary>
+    /// <param name="pw">The <see cref="IPlaywright"/> instance to use for launching the browser.</param>
+    /// <param name="options">Optional launch options for the Chromium browser. If not provided, default stealth options will be used.</param>
+    /// <returns>A <see cref="Task{TResult}"/> that represents the asynchronous operation. The result of the task is an <see cref="IBrowser"/> instance.</returns>
+    public static Task<IBrowser> LaunchStealthChromium(this IPlaywright pw, BrowserTypeLaunchOptions? options = null)
+    {
+        options ??= new();
+        options.Channel = "chromium";
+
+        if (options.Args is { } initArgs)
+        {
+            options.Args = [.. initArgs, .. DefaultInitializationArgs];
+        }
+        else
+        {
+            options.Args = DefaultInitializationArgs;
+        }
+
+        return pw.Chromium.LaunchAsync(options);
+    }
+
+    /// <summary>
+    /// Launches a Chromium browser instance with stealth configurations.
+    /// </summary>
+    /// <param name="pw">The <see cref="IPlaywright"/> instance to use for launching the browser.</param>
+    /// <returns>A <see cref="Task{TResult}"/> that represents the asynchronous operation. The result of the task is an <see cref="IBrowser"/> instance.</returns>
+    public static Task<IBrowser> LaunchStealthChromium(this IPlaywright pw) => LaunchStealthChromium(pw, null);
+
+    /// <summary>
+    /// Creates a new browser context with stealth configurations.
+    /// </summary>
+    /// <param name="browser">The <see cref="IBrowser"/> instance to create the context from.</param>
+    /// <param name="proxy">Optional proxy configuration to use for the browser context.</param>
+    /// <returns>A <see cref="ValueTask{TResult}"/> that represents the asynchronous operation. The result of the task is an <see cref="IBrowserContext"/> instance configured for stealth.</returns>
     public static async ValueTask<IBrowserContext> CreateStealthContext(this IBrowser browser, Proxy? proxy = null)
     {
         var profile = HardwareProfile.Generate();
@@ -61,7 +91,7 @@ public static class PlaywrightsStealthExtension
             Locale = "en-US",
             TimezoneId = p.TimeZone,
             DeviceScaleFactor = 1,
-            ViewportSize = new ViewportSize {Width = p.ScreenW, Height = p.ScreenH},
+            ViewportSize = new ViewportSize { Width = p.ScreenW, Height = p.ScreenH },
             ExtraHTTPHeaders = headers,
             Proxy = proxy
         };
