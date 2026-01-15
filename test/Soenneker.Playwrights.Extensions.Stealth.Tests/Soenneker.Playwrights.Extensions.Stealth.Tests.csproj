@@ -1,6 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
+        <OutputType>Exe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
@@ -8,18 +9,17 @@
         <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
     </PropertyGroup>
 
-    <ItemGroup>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
-        <PackageReference Include="Soenneker.Tests.Unit" Version="4.0.1013" />
-        <PackageReference Include="coverlet.collector" Version="6.0.4">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-            <PrivateAssets>all</PrivateAssets>
-        </PackageReference>
-        <PackageReference Include="xUnit.v3" Version="3.2.2" />
+    <ItemGroup><PackageReference Include="Soenneker.Tests.Unit" Version="4.0.1013" /><PackageReference Include="xUnit.v3" Version="3.2.2" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Soenneker.Playwrights.Extensions.Stealth.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="testconfig.json">
+          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
     </ItemGroup>
 
 </Project>
