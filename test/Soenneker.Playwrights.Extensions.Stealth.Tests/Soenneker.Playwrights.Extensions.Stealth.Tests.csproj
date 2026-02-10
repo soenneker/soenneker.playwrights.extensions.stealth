@@ -11,7 +11,7 @@
 
     </PropertyGroup>
 
-    <ItemGroup><PackageReference Include="Soenneker.Tests.Unit" Version="4.0.1021" /><PackageReference Include="xUnit.v3" Version="3.2.2" />
+    <ItemGroup><PackageReference Include="Soenneker.Tests.Unit" Version="4.0.1022" /><PackageReference Include="xUnit.v3" Version="3.2.2" />
     </ItemGroup>
 
     <ItemGroup>
