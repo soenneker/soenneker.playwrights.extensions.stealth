@@ -15,7 +15,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\Soenneker.Playwrights.Extensions.Stealth.csproj" />
+        <ProjectReference Include="..\..\src\Soenneker.Playwrights.Extensions.Stealth\Soenneker.Playwrights.Extensions.Stealth.csproj" />
     </ItemGroup>
 
     <ItemGroup>
