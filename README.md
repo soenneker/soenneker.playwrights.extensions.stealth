@@ -11,3 +11,24 @@
 ```
 dotnet add package Soenneker.Playwrights.Extensions.Stealth
 ```
+
+## Getting started
+
+Use `Playwright.LaunchStealthChromium()` to create the Browser, then use `browser.CreateStealthContext()` to create the BrowserContext. 
+Then use the BrowserContext as usual to create your page.
+
+```
+using Microsoft.Playwright;
+using Soenneker.Playwrights.Extensions.Stealth;
+
+
+using var playwright = await Playwright.CreateAsync();
+await using var browser = await playwright.LaunchStealthChromium(new BrowserTypeLaunchOptions
+{
+    Headless = true,
+    Args = ["--no-sandbox"]
+});
+
+var browserContext = await browser.CreateStealthContext();
+var page = await browserContext.NewPageAsync();
+```
