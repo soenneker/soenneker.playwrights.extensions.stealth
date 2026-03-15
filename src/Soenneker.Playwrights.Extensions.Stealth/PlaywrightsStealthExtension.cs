@@ -1,287 +1,130 @@
-﻿using Microsoft.Playwright;
+using Microsoft.Playwright;
 using Soenneker.Extensions.Task;
+using Soenneker.Extensions.ValueTask;
+using System;
 using System.Collections.Generic;
-using System.Globalization;
+using System.Diagnostics.Contracts;
+using System.Linq;
 using System.Threading.Tasks;
+using Soenneker.Playwrights.Extensions.Stealth.Options;
 
 namespace Soenneker.Playwrights.Extensions.Stealth;
 
 /// <summary>
-/// A collection of Playwright extensions for more stealthy usage
+/// Extension methods for launching and configuring Playwright browser sessions with stealth-oriented defaults
+/// to reduce automation detection (e.g. <c>navigator.webdriver</c>, automation-controlled flags, and fingerprint consistency).
 /// </summary>
 public static class PlaywrightsStealthExtension
 {
-    private static readonly string[] _defaultInitializationArgs = [
-        "--disable-blink-features=AutomationControlled",
-        "--enable-quic",
-        "--use-gl=desktop",
-        "--no-sandbox"
-    ];
-
     /// <summary>
-    /// Launches a Chromium browser instance with stealth configurations.
+    /// Launches a Chromium browser with stealth-oriented launch arguments (e.g. <c>--disable-blink-features=AutomationControlled</c>,
+    /// <c>--headless=new</c> when headless, and optional stripping of detectable Playwright default args).
     /// </summary>
-    /// <param name="pw">The <see cref="IPlaywright"/> instance to use for launching the browser.</param>
-    /// <param name="options">Optional launch options for the Chromium browser. If not provided, default stealth options will be used.</param>
-    /// <returns>A <see cref="Task{TResult}"/> that represents the asynchronous operation. The result of the task is an <see cref="IBrowser"/> instance.</returns>
-    public static Task<IBrowser> LaunchStealthChromium(this IPlaywright pw, BrowserTypeLaunchOptions? options = null)
+    /// <param name="pw">The Playwright instance.</param>
+    /// <param name="options">Standard Chromium launch options; <c>Channel</c> defaults to <c>chromium</c> if not set.</param>
+    /// <param name="stealthOptions">Optional settings for argument normalization and default-arg stripping; when null, default stealth options are used.</param>
+    /// <returns>A task that completes with the launched <see cref="IBrowser"/>.</returns>
+    [Pure]
+    public static Task<IBrowser> LaunchStealthChromium(this IPlaywright pw, BrowserTypeLaunchOptions? options = null, StealthLaunchOptions? stealthOptions = null)
     {
         options ??= new BrowserTypeLaunchOptions();
-        options.Channel = "chromium";
+        stealthOptions ??= new StealthLaunchOptions();
 
-        if (options.Args is { } initArgs)
-        {
-            options.Args = [.. initArgs, .. _defaultInitializationArgs];
-        }
-        else
-        {
-            options.Args = _defaultInitializationArgs;
-        }
+        options.Channel ??= "chromium";
+        options.Args = StealthLaunchArgumentNormalizer.Normalize(options.Args, options.Headless == true, stealthOptions);
+
+        if (stealthOptions.IgnoreDetectableDefaultArguments)
+            options.IgnoreDefaultArgs = MergeIgnoredDefaultArguments(options.IgnoreDefaultArgs, stealthOptions.AdditionalIgnoredDefaultArguments);
 
         return pw.Chromium.LaunchAsync(options);
     }
-    
+
     /// <summary>
-    /// Creates a new browser context with stealth configurations.
+    /// Creates a new browser context with stealth defaults: a generated hardware profile, shaped headers, optional document-header
+    /// normalization, and an init script that reduces automation signals. Optionally uses the given proxy.
     /// </summary>
-    /// <param name="browser">The <see cref="IBrowser"/> instance to create the context from.</param>
-    /// <param name="proxy">Optional proxy configuration to use for the browser context.</param>
-    /// <returns>A <see cref="ValueTask{TResult}"/> that represents the asynchronous operation. The result of the task is an <see cref="IBrowserContext"/> instance configured for stealth.</returns>
-    public static async ValueTask<IBrowserContext> CreateStealthContext(this IBrowser browser, Proxy? proxy = null)
+    /// <param name="browser">The browser to create the context from (typically from <see cref="LaunchStealthChromium"/>).</param>
+    /// <param name="proxy">Optional proxy configuration for the new context.</param>
+    /// <returns>A value task that completes with the configured <see cref="IBrowserContext"/>.</returns>
+    [Pure]
+    public static ValueTask<IBrowserContext> CreateStealthContext(this IBrowser browser, Proxy? proxy = null)
     {
-        var profile = HardwareProfile.Generate();
+        return CreateStealthContextCore(browser, null, new StealthContextOptions { Proxy = proxy });
+    }
 
-        BrowserNewContextOptions options = BuildContextOptions(profile, proxy);
-        IBrowserContext context = await browser.NewContextAsync(options).NoSync();
+    /// <summary>
+    /// Creates a new browser context with stealth defaults, using the provided context options and optional stealth settings.
+    /// Merges profile-derived values (User-Agent, viewport, locale, timezone, etc.) with your options.
+    /// </summary>
+    /// <param name="browser">The browser to create the context from.</param>
+    /// <param name="options">Standard Playwright context options; profile values fill in only where not specified.</param>
+    /// <param name="stealthOptions">Optional stealth behavior (headers, CDP hardening, etc.); when null, default stealth options are used.</param>
+    /// <returns>A value task that completes with the configured <see cref="IBrowserContext"/>.</returns>
+    [Pure]
+    public static ValueTask<IBrowserContext> CreateStealthContext(this IBrowser browser, BrowserNewContextOptions options, StealthContextOptions? stealthOptions = null)
+    {
+        return CreateStealthContextCore(browser, options, stealthOptions);
+    }
 
-        // add all patches BEFORE the page loads
-        await context.AddInitScriptAsync(BuildInitScript(profile)).NoSync();
+    /// <summary>
+    /// Applies stealth behavior to an existing browser context: configures routing for document headers (if enabled),
+    /// CDP domain hardening (if enabled), and adds the stealth init script. Uses the given or a newly generated
+    /// <see cref="HardwareProfile"/> for consistency.
+    /// </summary>
+    /// <param name="context">The existing browser context to configure.</param>
+    /// <param name="stealthOptions">Optional stealth settings; when null, default stealth options are used.</param>
+    /// <param name="hardwareProfile">Optional profile for headers and init script; when null, a new profile is generated and aligned with the browser version.</param>
+    /// <returns>A value task that completes with the same <see cref="IBrowserContext"/> after stealth has been applied.</returns>
+    [Pure]
+    public static async ValueTask<IBrowserContext> ApplyStealth(this IBrowserContext context, StealthContextOptions? stealthOptions = null, HardwareProfile? hardwareProfile = null)
+    {
+        HardwareProfile profile = hardwareProfile ?? HardwareProfile.Generate();
+        profile = profile.WithBrowserVersion(context.Browser?.Version);
+
+        await StealthContextConfigurator.AttachAsync(context, profile, stealthOptions).NoSync();
+        await StealthProtocolHardener.AttachAsync(context, stealthOptions).NoSync();
+        await context.AddInitScriptAsync(StealthScriptBuilder.Build(profile)).NoSync();
 
         return context;
     }
 
-    private static BrowserNewContextOptions BuildContextOptions(HardwareProfile p, Proxy? proxy)
+    private static async ValueTask<IBrowserContext> CreateStealthContextCore(IBrowser browser, BrowserNewContextOptions? options, StealthContextOptions? stealthOptions)
     {
-        string ua =
-            $"Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-            $"AppleWebKit/537.36 (KHTML, like Gecko) " +
-            $"Chrome/{p.ChromeVersion} Safari/537.36";
+        HardwareProfile profile = HardwareProfile.Generate().WithBrowserVersion(browser.Version);
+        BrowserNewContextOptions contextOptions = StealthContextConfigurator.BuildContextOptions(profile, options, stealthOptions);
+        HardwareProfile effectiveProfile = profile.WithContextOptions(contextOptions);
 
-        var headers = new Dictionary<string, string>
-        {
-            // --- Core navigation headers ---
-            ["Accept"] =
-                "text/html,application/xhtml+xml,application/xml;q=0.9," +
-                "image/avif,image/webp,image/apng,*/*;q=0.8," +
-                "application/signed-exchange;v=b3;q=0.7",
+        IBrowserContext context = await browser.NewContextAsync(contextOptions).NoSync();
+        await context.ApplyStealth(stealthOptions, effectiveProfile).NoSync();
 
-            ["Accept-Language"] = "en-US,en;q=0.9",
-
-            ["Accept-Encoding"] = "gzip, deflate, br",
-
-            ["Upgrade-Insecure-Requests"] = "1",
-
-            ["Sec-CH-UA"] =
-                $"\"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"{p.ChromeMajorVersion}\", \"Google Chrome\";v=\"{p.ChromeMajorVersion}\"",
-
-            ["Sec-CH-UA-Full-Version"] = p.ChromeVersion,
-
-            ["Sec-CH-UA-Full-Version-List"] =
-                $"\"Not(A:Brand\";v=\"8.0.0.0\", " +
-                $"\"Chromium\";v=\"{p.ChromeVersion}\", " +
-                $"\"Google Chrome\";v=\"{p.ChromeVersion}\"",
-
-            ["Sec-CH-UA-Mobile"] = "?0",
-            ["Sec-CH-UA-Platform"] = "\"Windows\"",
-            ["Sec-CH-UA-Platform-Version"] = "\"19.0.0\"",
-            ["Sec-CH-UA-Arch"] = "\"x86\"",
-            ["Sec-CH-UA-Bitness"] = "\"64\"",
-            ["Sec-CH-UA-WoW64"] = "?0",
-            ["Sec-CH-UA-Model"] = "\"\"",
-
-            ["Sec-Fetch-Dest"] = "document",
-            ["Sec-Fetch-Mode"] = "navigate",
-            ["Sec-Fetch-Site"] = "none",
-            ["Sec-Fetch-User"] = "?1",
-
-            ["Sec-CH-Prefers-Color-Scheme"] = "dark",
-
-            ["User-Agent"] = ua,
-        };
-
-        return new BrowserNewContextOptions
-        {
-            UserAgent = ua,
-            Locale = "en-US",
-            TimezoneId = p.TimeZone,
-            DeviceScaleFactor = 1,
-            ViewportSize = new ViewportSize { Width = p.ScreenW, Height = p.ScreenH },
-            ExtraHTTPHeaders = headers,
-            Proxy = proxy,
-            //Geolocation = new Geolocation { Latitude = p.Latitude, Longitude = p.Longitude },
-            //Permissions = new[] { "geolocation" }
-        };
+        return context;
     }
 
-    private static string BuildInitScript(HardwareProfile p)
+    private static string[] MergeIgnoredDefaultArguments(IEnumerable<string>? existingIgnoredDefaults, IEnumerable<string>? additionalIgnoredDefaults)
     {
-        var lat = p.Latitude.ToString("F5", CultureInfo.InvariantCulture);
-        var lng = p.Longitude.ToString("F5", CultureInfo.InvariantCulture);
+        var ignored = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        return $$$$"""
-               (()=>{{
-                   let seed={{{{p.Seed}}}};
-                   const rand = () => ((Math.sin(seed++) + 1) / 2);
+        if (existingIgnoredDefaults is not null)
+        {
+            foreach (string value in existingIgnoredDefaults.Where(static value => !string.IsNullOrWhiteSpace(value)))
+            {
+                ignored.Add(value);
+            }
+        }
 
-                   /* webdriver flag */
-                   Object.defineProperty(navigator,'webdriver',{get:()=>undefined});
+        foreach (string value in StealthLaunchArgumentNormalizer.DetectableDefaultArgumentsToIgnore)
+        {
+            ignored.Add(value);
+        }
 
-                   /* classic navigator props */
-                   Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>{{{{p.Cores}}}}});
-                   Object.defineProperty(navigator,'deviceMemory',{get:()=>{{{{p.MemoryGb}}}}});
-                   Object.defineProperty(navigator,'platform',{get:()=>'{{{{p.Platform}}}}'});
-                   Object.defineProperty(navigator,'vendor',{get:()=>'Google Inc.'});
+        if (additionalIgnoredDefaults is not null)
+        {
+            foreach (string value in additionalIgnoredDefaults.Where(static value => !string.IsNullOrWhiteSpace(value)))
+            {
+                ignored.Add(value);
+            }
+        }
 
-                   /* window outer dims (viewport + chrome) – DPI aware */
-                   Object.defineProperty(window,'outerWidth',{get:()=>{{{{p.ScreenW}}}}});
-                   Object.defineProperty(window,'outerHeight',{get:()=>{{
-                       const chromeBar = Math.min(Math.max(70, 85*window.devicePixelRatio), 115);
-                       return {{{{p.ScreenH}}}} + chromeBar;
-                   }}});
-
-                   /* UA-CH high-entropy shim */
-                   const brands=[
-                       {{ brand:'Chromium',       version:'{{{{p.ChromeMajorVersion}}}}' }},
-                       {{ brand:'Google Chrome',  version:'{{{{p.ChromeMajorVersion}}}}' }},
-                       {{ brand:'Not(A:Brand',    version:'8' }}
-                   ];
-
-                   const uaData={{
-                       brands,
-                       mobile:false,
-                       platform:'{{{{p.OsPlatform}}}}',
-                       getHighEntropyValues:async h=>Object.fromEntries(
-                           h.map(x=>[x,{{
-                               architecture:'x86',
-                               model:'',
-                               bitness:'64',
-                               platformVersion:'{{{{p.OsPlatformVersion}}}}',
-                               uaFullVersion:'{{{{p.ChromeVersion}}}}',
-                               fullVersionList:brands
-                           }}[x]]))
-                   }};
-                   Object.defineProperty(navigator,'userAgentData',{{get:()=>uaData}});
-
-                   /* window.chrome stub */
-                   window.chrome={{
-                       runtime:{{}},
-                       webstore:{{
-                           onInstallStageChanged:{{addListener:()=>{{}} }},
-                           onDownloadProgress:{{addListener:()=>{{}} }}
-                       }}
-                   }};
-
-                   /* permissions latency shim (clone for instanceof safety) */
-                   const realQuery = navigator.permissions.query.bind(navigator.permissions);
-                   navigator.permissions.query = d => new Promise(res=>{{
-                       setTimeout(async ()=>{{
-                           const r = await realQuery(d);
-                           res({{state:r.state,onchange:null}});
-                       }},20+rand()*30);
-                   }});
-
-                   /* navigator.connection (extra fields) */
-                   Object.defineProperty(navigator,'connection',{{ get: () => ({{
-                       downlink    : 10 + rand()*40,
-                       downlinkMax : 100,
-                       effectiveType:'4g',
-                       rtt         : Math.round(40 + rand()*120),
-                       saveData    : false
-                   }})}});
-
-                   /* Battery API */
-                   navigator.getBattery = () => Promise.resolve({{
-                       charging:true,
-                       chargingTime:0,
-                       dischargingTime:Infinity,
-                       level:0.77,
-                       onchargingchange:null,
-                       onlevelchange:null,
-                       onchargingtimechange:null,
-                       ondischargingtimechange:null
-                   }});
-
-                   /* Intl timezone coherence */
-                   const origDTF = Intl.DateTimeFormat;
-                   Intl.DateTimeFormat = function(...a){{
-                       const dtf = new origDTF(...a);
-                       const ro  = dtf.resolvedOptions();
-                       Object.defineProperty(ro,'timeZone',{{get:()=>'{{{{p.TimeZone}}}}'}});
-                       dtf.resolvedOptions = () => ro;
-                       return dtf;
-                   }};
-
-                   /* FontFaceSet proxy */
-                   if(document.fonts && window.FontFaceSet){{
-                       const orig   = document.fonts;
-                       const extras = ['Arial','Courier New','Times New Roman','Segoe UI'];
-                       const proxy  = new Proxy(orig,{{
-                           get:(t,p)=>
-                               p==='size'  ? t.size + extras.length :
-                               p==='values'? ()=>[...t.values(),...extras.map(f=>new FontFace(f,'local("'+f+'")'))] :
-                                             Reflect.get(t,p)
-                       }});
-                       Object.defineProperty(document,'fonts',{{value:proxy}});
-                   }}
-
-                   /* media devices list */
-                   if(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices){{
-                       navigator.mediaDevices.enumerateDevices = async () => ([
-                           {{deviceId:'default',groupId:'aud1',kind:'audioinput', label:'Microphone'}},
-                           {{deviceId:'default',groupId:'aud1',kind:'audiooutput',label:'Speaker'}},
-                           {{deviceId:'default',groupId:'vid1',kind:'videoinput', label:'Integrated Camera'}}
-                       ]);
-                   }}
-
-                   /* geolocation */
-                   const position = {{
-                       coords:{{latitude:{{{{lat}}}},longitude:{{{{lng}}}},accuracy:25}},
-                       timestamp:Date.now()
-                   }};
-                   navigator.geolocation ??={{}};
-                   navigator.geolocation.getCurrentPosition = cb => setTimeout(()=>cb(position),200+rand()*300);
-                   navigator.geolocation.watchPosition      = cb => (cb(position),1);
-
-                   /* canvas noise */
-                   const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
-                   HTMLCanvasElement.prototype.toDataURL = function(...a){{
-                       const ctx=this.getContext('2d');
-                       if(ctx && ctx.globalAlpha) ctx.globalAlpha = 0.9997 + rand()*0.0002;
-                       return origToDataURL.apply(this,a);
-                   }};
-
-                   /* WebGL vendor spoof */
-                   const getParam = WebGLRenderingContext.prototype.getParameter;
-                   WebGLRenderingContext.prototype.getParameter = function(p){{
-                       if(p===37445) return 'Intel Inc.';
-                       if(p===37446) return 'Intel Iris OpenGL Engine';
-                       return getParam.call(this,p);
-                   }};
-
-                   /* WebRTC leak block */
-                   const pc = RTCPeerConnection.prototype;
-                   ['createOffer','createAnswer'].forEach(fn=>{{
-                       const o = pc[fn];
-                       pc[fn] = function(...a){{
-                           return o.apply(this,a).then(d=>{{
-                               if(d && d.sdp) d.sdp = d.sdp.replace(/a=candidate:.+\\r?\\n/g,'');
-                               return d;
-                           }});
-                       }};
-                   }});
-                   Object.defineProperty(pc,'localDescription',{{get:()=>null}});
-               }})();
-               """;
+        return [.. ignored];
     }
-
 }
