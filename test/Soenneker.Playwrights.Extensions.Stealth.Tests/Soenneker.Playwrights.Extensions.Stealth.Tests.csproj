@@ -8,31 +8,31 @@
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
         <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
         <TestingPlatformShowTestsFailure>true</TestingPlatformShowTestsFailure>
-        
     </PropertyGroup>
 
     <ItemGroup>
-      <None Remove="appsettings.json" />
+        <None Remove="appsettings.json" />
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Soenneker.Facts.Local" Version="4.0.612" />
-        <PackageReference Include="Soenneker.Playwright.Installation" Version="4.0.246" />
+        <PackageReference Include="Soenneker.Playwrights.Installation" Version="4.0.1" />
         <PackageReference Include="Soenneker.Utils.Test" Version="4.0.313" />
         <PackageReference Include="Soenneker.Tests.FixturedUnit" Version="4.0.2289" />
         <PackageReference Include="xUnit.v3" Version="3.2.2" />
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\Soenneker.Playwrights.Extensions.Stealth\Soenneker.Playwrights.Extensions.Stealth.csproj" />
+        <ProjectReference
+            Include="..\..\src\Soenneker.Playwrights.Extensions.Stealth\Soenneker.Playwrights.Extensions.Stealth.csproj" />
     </ItemGroup>
 
     <ItemGroup>
         <Content Include="appsettings.json">
-          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
         <Content Include="testconfig.json">
-          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
     </ItemGroup>
 

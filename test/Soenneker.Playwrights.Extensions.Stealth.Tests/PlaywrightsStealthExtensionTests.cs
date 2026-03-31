@@ -2,7 +2,7 @@ using Microsoft.Playwright;
 using Soenneker.Tests.FixturedUnit;
 using System.Threading.Tasks;
 using Soenneker.Facts.Local;
-using Soenneker.Playwright.Installation.Abstract;
+using Soenneker.Playwrights.Installation.Abstract;
 using Soenneker.Utils.Delay;
 using Xunit;
 
@@ -28,7 +28,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
     {
         await _util.EnsureInstalled(CancellationToken);
 
-        using IPlaywright playwright = await Microsoft.Playwright.Playwright.CreateAsync();
+        using IPlaywright playwright = await Playwright.CreateAsync();
         await using IBrowser browser = await playwright.LaunchStealthChromium(new BrowserTypeLaunchOptions { Headless = false });
         await using IBrowserContext context = await browser.CreateStealthContext();
         IPage page = await context.NewPageAsync();
@@ -43,7 +43,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
     {
         await _util.EnsureInstalled(CancellationToken);
 
-        using IPlaywright playwright = await Microsoft.Playwright.Playwright.CreateAsync();
+        using IPlaywright playwright = await Playwright.CreateAsync();
         await using IBrowser browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = false });
         await using IBrowserContext context = await browser.NewContextAsync();
 

@@ -2,7 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Soenneker.Fixtures.Unit;
-using Soenneker.Playwright.Installation.Registrars;
+using Soenneker.Playwrights.Installation.Registrars;
 using Soenneker.Utils.Test;
 
 namespace Soenneker.Playwrights.Extensions.Stealth.Tests;
