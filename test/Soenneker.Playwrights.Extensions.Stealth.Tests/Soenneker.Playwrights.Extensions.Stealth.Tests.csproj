@@ -18,7 +18,7 @@
         <PackageReference Include="Soenneker.Facts.Local" Version="4.0.614" />
         <PackageReference Include="Soenneker.Playwrights.Installation" Version="4.0.2" />
         <PackageReference Include="Soenneker.Utils.Test" Version="4.0.313" />
-        <PackageReference Include="Soenneker.Tests.FixturedUnit" Version="4.0.2291" />
+        <PackageReference Include="Soenneker.Tests.FixturedUnit" Version="4.0.2293" />
         <PackageReference Include="xUnit.v3" Version="3.2.2" />
     </ItemGroup>
 
