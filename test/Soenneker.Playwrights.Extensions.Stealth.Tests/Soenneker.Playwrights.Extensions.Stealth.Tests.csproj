@@ -15,7 +15,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Soenneker.Facts.Local" Version="4.0.614" />
+        <PackageReference Include="Soenneker.Facts.Local" Version="4.0.615" />
         <PackageReference Include="Soenneker.Playwrights.Installation" Version="4.0.5" />
         <PackageReference Include="Soenneker.Utils.Test" Version="4.0.314" />
         <PackageReference Include="Soenneker.Tests.FixturedUnit" Version="4.0.2294" />
