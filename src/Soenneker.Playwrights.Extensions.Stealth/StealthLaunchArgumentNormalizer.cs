@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Soenneker.Playwrights.Extensions.Stealth.Options;
+using Soenneker.Extensions.String;
 
 namespace Soenneker.Playwrights.Extensions.Stealth;
 
@@ -44,7 +45,7 @@ internal static class StealthLaunchArgumentNormalizer
         {
             foreach (string argument in existingArguments)
             {
-                if (string.IsNullOrWhiteSpace(argument))
+                if (argument.IsNullOrWhiteSpace())
                     continue;
 
                 if (options.RemoveDetectableArguments && ShouldRemove(argument))
@@ -58,9 +59,6 @@ internal static class StealthLaunchArgumentNormalizer
         {
             AddOrMerge(result, argument);
         }
-
-        if (options.ForceNewHeadlessMode && isHeadlessLaunch)
-            AddOrMerge(result, "--headless=new");
 
         if (options.IncludeNoSandboxArgument)
             AddOrMerge(result, "--no-sandbox");

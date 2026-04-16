@@ -26,15 +26,10 @@ public sealed class StealthLaunchOptions
     /// <summary>
     /// Additional Playwright default arguments to ignore during launch.
     /// </summary>
-    public ICollection<string>? AdditionalIgnoredDefaultArguments { get; set; }
-
-    /// <summary>
-    /// Force Chromium to use <c>--headless=new</c> when launching in headless mode.
-    /// </summary>
-    public bool ForceNewHeadlessMode { get; set; } = true;
+    public List<string>? AdditionalIgnoredDefaultArguments { get; set; }
 
     /// <summary>
     /// Additional arguments appended after the built-in stealth defaults have been normalized.
     /// </summary>
-    public ICollection<string>? AdditionalArguments { get; set; }
+    public List<string>? AdditionalArguments { get; set; }
 }

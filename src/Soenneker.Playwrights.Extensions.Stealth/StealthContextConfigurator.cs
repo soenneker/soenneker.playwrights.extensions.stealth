@@ -15,6 +15,7 @@ internal static class StealthContextConfigurator
         stealthOptions ??= new StealthContextOptions();
 
         options.UserAgent ??= StealthHeaderBuilder.BuildUserAgent(profile);
+        HardwareProfile effectiveProfile = profile.WithUserAgent(options.UserAgent);
         options.Locale ??= profile.Locale;
         options.TimezoneId = HardwareProfile.NormalizeTimezoneId(options.TimezoneId ?? profile.TimeZone);
         options.ViewportSize ??= new ViewportSize
@@ -27,7 +28,7 @@ internal static class StealthContextConfigurator
         if (stealthOptions.AlignColorScheme)
             options.ColorScheme ??= profile.PrefersDarkMode ? ColorScheme.Dark : ColorScheme.Light;
 
-        options.ExtraHTTPHeaders = MergeHeaders(options.ExtraHTTPHeaders, StealthHeaderBuilder.BuildContextHeaders(profile, stealthOptions));
+        options.ExtraHTTPHeaders = MergeHeaders(options.ExtraHTTPHeaders, StealthHeaderBuilder.BuildContextHeaders(effectiveProfile, stealthOptions));
 
         return options;
     }

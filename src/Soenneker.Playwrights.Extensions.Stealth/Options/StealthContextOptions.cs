@@ -16,7 +16,7 @@ public sealed class StealthContextOptions
     /// <summary>
     /// Merge these headers into the generated context headers.
     /// </summary>
-    public IDictionary<string, string>? AdditionalHttpHeaders { get; set; }
+    public Dictionary<string, string>? AdditionalHttpHeaders { get; set; }
 
     /// <summary>
     /// Include synthetic Client Hints request headers at the context level.

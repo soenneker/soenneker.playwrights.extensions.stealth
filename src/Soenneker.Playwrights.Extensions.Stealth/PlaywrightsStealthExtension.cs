@@ -92,7 +92,8 @@ public static class PlaywrightsStealthExtension
     {
         HardwareProfile profile = HardwareProfile.Generate().WithBrowserVersion(browser.Version);
         BrowserNewContextOptions contextOptions = StealthContextConfigurator.BuildContextOptions(profile, options, stealthOptions);
-        HardwareProfile effectiveProfile = profile.WithContextOptions(contextOptions);
+        HardwareProfile effectiveProfile = profile.WithContextOptions(contextOptions)
+                                                 .WithUserAgent(contextOptions.UserAgent);
 
         IBrowserContext context = await browser.NewContextAsync(contextOptions).NoSync();
         await context.ApplyStealth(stealthOptions, effectiveProfile).NoSync();

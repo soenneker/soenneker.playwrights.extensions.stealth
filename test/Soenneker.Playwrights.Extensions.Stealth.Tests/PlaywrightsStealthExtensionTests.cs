@@ -1,7 +1,7 @@
 using Microsoft.Playwright;
 using Soenneker.Tests.FixturedUnit;
 using System.Threading.Tasks;
-using Soenneker.Facts.Local;
+using Soenneker.Facts.Manual;
 using Soenneker.Playwrights.Installation.Abstract;
 using Soenneker.Utils.Delay;
 using Xunit;
@@ -23,7 +23,22 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
     {
     }
 
-    [LocalFact]
+    [Fact]
+    public void BuildUserAgent_UsesReducedChromiumVersion()
+    {
+        HardwareProfile profile = HardwareProfile.Generate() with
+        {
+            ChromeVersion = "147.0.7727.15",
+            ChromeMajorVersion = 147
+        };
+
+        string userAgent = StealthHeaderBuilder.BuildUserAgent(profile);
+
+        Assert.Contains("Chrome/147.0.0.0", userAgent);
+        Assert.DoesNotContain("Chrome/147.0.7727.15", userAgent);
+    }
+
+    [ManualFact]
     public async ValueTask NavigateToWebsite_WithStealth()
     {
         await _util.EnsureInstalled(CancellationToken);
@@ -38,7 +53,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
         await DelayUtil.Delay(20000);
     }
 
-    [LocalFact]
+    [ManualFact]
     public async ValueTask NavigateToWebsite_WithoutStealth()
     {
         await _util.EnsureInstalled(CancellationToken);

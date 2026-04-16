@@ -3,6 +3,7 @@ using Soenneker.Utils.Random;
 using System;
 using System.Globalization;
 using System.Linq;
+using Soenneker.Extensions.String;
 
 namespace Soenneker.Playwrights.Extensions.Stealth;
 
@@ -63,6 +64,8 @@ public sealed record HardwareProfile(
     int ColorDepth,
     int PixelDepth)
 {
+    public string? UserAgentOverride { get; init; }
+
     /// <summary>
     /// Generates a new random hardware profile with coherent Windows/Chrome values
     /// (cores, memory, viewport, DPR, Chrome version, timezone, locale, WebGL, geolocation, etc.).
@@ -132,7 +135,7 @@ public sealed record HardwareProfile(
         if (options is null)
             return this;
 
-        string locale = string.IsNullOrWhiteSpace(options.Locale) ? Locale : options.Locale;
+        string locale = options.Locale.IsNullOrWhiteSpace() ? Locale : options.Locale;
         string[] languages = string.IsNullOrWhiteSpace(options.Locale) ? Languages : BuildLanguages(options.Locale);
 
         return this with
@@ -159,6 +162,29 @@ public sealed record HardwareProfile(
 
         return this with
         {
+            ChromeVersion = parsedVersion,
+            ChromeMajorVersion = parsedMajor
+        };
+    }
+
+    /// <summary>
+    /// Returns a copy of this profile with a caller-supplied User-Agent override. When the User-Agent
+    /// contains a Chromium version token, the profile's Chrome version fields are updated so Client Hints
+    /// and JS-exposed surfaces stay aligned with the override.
+    /// </summary>
+    /// <param name="userAgent">The User-Agent string to apply.</param>
+    /// <returns>A new <see cref="HardwareProfile"/> aligned with the supplied User-Agent.</returns>
+    public HardwareProfile WithUserAgent(string? userAgent)
+    {
+        if (string.IsNullOrWhiteSpace(userAgent))
+            return this with { UserAgentOverride = null };
+
+        if (!TryParseUserAgentChromiumVersion(userAgent, out string parsedVersion, out int parsedMajor))
+            return this with { UserAgentOverride = userAgent };
+
+        return this with
+        {
+            UserAgentOverride = userAgent,
             ChromeVersion = parsedVersion,
             ChromeMajorVersion = parsedMajor
         };
@@ -243,6 +269,34 @@ public sealed record HardwareProfile(
 
         parsedVersion = version;
         parsedMajor = major;
+        return true;
+    }
+
+    private static bool TryParseUserAgentChromiumVersion(string userAgent, out string parsedVersion, out int parsedMajor)
+    {
+        parsedVersion = string.Empty;
+        parsedMajor = 0;
+
+        return TryExtractVersionCandidate(userAgent, "Chrome/", out string chromeCandidate) && TryParseChromiumVersion(chromeCandidate, out parsedVersion, out parsedMajor) ||
+               TryExtractVersionCandidate(userAgent, "Chromium/", out string chromiumCandidate) && TryParseChromiumVersion(chromiumCandidate, out parsedVersion, out parsedMajor) ||
+               TryExtractVersionCandidate(userAgent, "CriOS/", out string criosCandidate) && TryParseChromiumVersion(criosCandidate, out parsedVersion, out parsedMajor);
+    }
+
+    private static bool TryExtractVersionCandidate(string value, string token, out string candidate)
+    {
+        candidate = string.Empty;
+
+        int tokenIndex = value.IndexOf(token, StringComparison.OrdinalIgnoreCase);
+
+        if (tokenIndex < 0)
+            return false;
+
+        int versionStartIndex = tokenIndex + token.Length;
+
+        if (versionStartIndex >= value.Length)
+            return false;
+
+        candidate = value[versionStartIndex..];
         return true;
     }
 }

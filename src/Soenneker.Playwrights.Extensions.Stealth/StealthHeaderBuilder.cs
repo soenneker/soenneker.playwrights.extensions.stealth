@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Soenneker.Extensions.String;
 using Soenneker.Playwrights.Extensions.Stealth.Options;
 
 namespace Soenneker.Playwrights.Extensions.Stealth;
@@ -8,33 +9,34 @@ internal static class StealthHeaderBuilder
 {
     public static string BuildUserAgent(HardwareProfile profile)
     {
-        return
-            $"Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-            $"AppleWebKit/537.36 (KHTML, like Gecko) " +
-            $"Chrome/{profile.ChromeVersion} Safari/537.36";
+        if (profile.UserAgentOverride.HasContent())
+            return profile.UserAgentOverride;
+
+        return $"Mozilla/5.0 (Windows NT 10.0; Win64; x64) " + $"AppleWebKit/537.36 (KHTML, like Gecko) " +
+               $"Chrome/{BuildReducedChromiumVersion(profile)} Safari/537.36";
     }
 
     public static Dictionary<string, string> BuildContextHeaders(HardwareProfile profile, StealthContextOptions? options = null)
     {
         var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Accept-Language"] = BuildAcceptLanguage(profile),
-            ["User-Agent"] = BuildUserAgent(profile)
+            ["accept-language"] = BuildAcceptLanguage(profile),
+            ["user-agent"] = BuildUserAgent(profile)
         };
 
         if (options?.InjectClientHintHeaders == true)
         {
-            headers["Sec-CH-UA"] = BuildBrandsHeader(profile);
-            headers["Sec-CH-UA-Full-Version"] = $"\"{profile.ChromeVersion}\"";
-            headers["Sec-CH-UA-Full-Version-List"] = BuildFullVersionBrandsHeader(profile);
-            headers["Sec-CH-UA-Mobile"] = "?0";
-            headers["Sec-CH-UA-Platform"] = $"\"{profile.OsPlatform}\"";
-            headers["Sec-CH-UA-Platform-Version"] = $"\"{profile.OsPlatformVersion}\"";
-            headers["Sec-CH-UA-Arch"] = $"\"{profile.Architecture}\"";
-            headers["Sec-CH-UA-Bitness"] = $"\"{profile.Bitness}\"";
-            headers["Sec-CH-UA-WoW64"] = "?0";
-            headers["Sec-CH-UA-Model"] = "\"\"";
-            headers["Sec-CH-Prefers-Color-Scheme"] = profile.PrefersDarkMode ? "dark" : "light";
+            headers["sec-ch-ua"] = BuildBrandsHeader(profile);
+            headers["sec-ch-ua-full-version"] = $"\"{profile.ChromeVersion}\"";
+            headers["sec-ch-ua-full-version-list"] = BuildFullVersionBrandsHeader(profile);
+            headers["sec-ch-ua-mobile"] = "?0";
+            headers["sec-ch-ua-platform"] = $"\"{profile.OsPlatform}\"";
+            headers["sec-ch-ua-platform-version"] = $"\"{profile.OsPlatformVersion}\"";
+            headers["sec-ch-ua-arch"] = $"\"{profile.Architecture}\"";
+            headers["sec-ch-ua-bitness"] = $"\"{profile.Bitness}\"";
+            headers["sec-ch-ua-wow64"] = "?0";
+            headers["sec-ch-ua-model"] = "\"\"";
+            headers["sec-ch-prefers-color-scheme"] = profile.PrefersDarkMode ? "dark" : "light";
         }
 
         if (options?.AdditionalHttpHeaders is not null)
@@ -48,19 +50,21 @@ internal static class StealthHeaderBuilder
         return headers;
     }
 
-    public static Dictionary<string, string> BuildDocumentHeaders(HardwareProfile profile, IReadOnlyDictionary<string, string> requestHeaders, string requestUrl)
+    public static Dictionary<string, string> BuildDocumentHeaders(HardwareProfile profile, IReadOnlyDictionary<string, string> requestHeaders,
+        string requestUrl)
     {
         var headers = new Dictionary<string, string>(requestHeaders, StringComparer.OrdinalIgnoreCase)
         {
-            ["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-            ["Accept-Language"] = BuildAcceptLanguage(profile),
-            ["Upgrade-Insecure-Requests"] = "1",
-            ["Sec-Fetch-Dest"] = "document",
-            ["Sec-Fetch-Mode"] = "navigate",
-            ["Sec-Fetch-User"] = "?1"
+            ["accept"] =
+                "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            ["accept-language"] = BuildAcceptLanguage(profile),
+            ["upgrade-insecure-requests"] = "1",
+            ["sec-fetch-dest"] = "document",
+            ["sec-fetch-mode"] = "navigate",
+            ["sec-fetch-user"] = "?1"
         };
 
-        headers["Sec-Fetch-Site"] = DetermineFetchSite(headers, requestUrl);
+        headers["sec-fetch-site"] = DetermineFetchSite(headers, requestUrl);
 
         return headers;
     }
@@ -80,15 +84,17 @@ internal static class StealthHeaderBuilder
 
     private static string BuildFullVersionBrandsHeader(HardwareProfile profile)
     {
-        return
-            $"\"Not(A:Brand\";v=\"8.0.0.0\", " +
-            $"\"Chromium\";v=\"{profile.ChromeVersion}\", " +
-            $"\"Google Chrome\";v=\"{profile.ChromeVersion}\"";
+        return $"\"Not(A:Brand\";v=\"8.0.0.0\", " + $"\"Chromium\";v=\"{profile.ChromeVersion}\", " + $"\"Google Chrome\";v=\"{profile.ChromeVersion}\"";
+    }
+
+    private static string BuildReducedChromiumVersion(HardwareProfile profile)
+    {
+        return $"{profile.ChromeMajorVersion}.0.0.0";
     }
 
     private static string DetermineFetchSite(IReadOnlyDictionary<string, string> headers, string requestUrl)
     {
-        if (!headers.TryGetValue("Referer", out string? referer) || string.IsNullOrWhiteSpace(referer))
+        if (!headers.TryGetValue("referer", out string? referer) || string.IsNullOrWhiteSpace(referer))
             return "none";
 
         if (!Uri.TryCreate(referer, UriKind.Absolute, out Uri? refererUri))

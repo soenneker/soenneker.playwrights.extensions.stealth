@@ -1,9 +1,9 @@
 using Microsoft.Playwright;
 using Soenneker.Extensions.Task;
-using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using Soenneker.Extensions.ValueTask;
 using Soenneker.Playwrights.Extensions.Stealth.Options;
 
 namespace Soenneker.Playwrights.Extensions.Stealth;
@@ -22,18 +22,18 @@ internal static class StealthProtocolHardener
         if (!_configuredContexts.TryGetValue(context, out _))
         {
             _configuredContexts.Add(context, new object());
-            context.Page += (_, page) => _ = HardenPageSafeAsync(context, page, options);
+            context.Page += (_, page) => _ = HardenPageSafe(context, page, options);
         }
 
         IReadOnlyList<IPage> pages = context.Pages;
 
         for (var i = 0; i < pages.Count; i++)
         {
-            await HardenPageSafeAsync(context, pages[i], options).NoSync();
+            await HardenPageSafe(context, pages[i], options).NoSync();
         }
     }
 
-    private static async Task HardenPageSafeAsync(IBrowserContext context, IPage page, StealthContextOptions options)
+    private static async ValueTask HardenPageSafe(IBrowserContext context, IPage page, StealthContextOptions options)
     {
         try
         {

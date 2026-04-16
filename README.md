@@ -26,7 +26,8 @@ using Soenneker.Playwrights.Extensions.Stealth;
 using var playwright = await Playwright.CreateAsync();
 await using var browser = await playwright.LaunchStealthChromium(new BrowserTypeLaunchOptions
 {
-    Headless = true
+    Headless = true,
+    Channel = "chromium"
 });
 
 var browserContext = await browser.CreateStealthContext();
@@ -68,11 +69,15 @@ await using var browser = await playwright.LaunchStealthChromium(
     });
 
 var context = await browser.CreateStealthContext(
-    new BrowserNewContextOptions(),
+    new BrowserNewContextOptions
+    {
+        // Optionally specify a UserAgent
+        UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+    },
     new StealthContextOptions
     {
         NormalizeDocumentHeaders = true,
-        InjectClientHintHeaders = false,
+        InjectClientHintHeaders = true,
         EnableCdpDomainHardening = true,
         DisableConsoleDomain = true,
         DisableRuntimeDomain = false,
@@ -98,7 +103,7 @@ await context.ApplyStealthAsync();
 |------|-------------|
 | **Launch options** | Normalizes Chromium args with stealth-oriented defaults: ensures `--disable-blink-features=AutomationControlled`, forces `--headless=new` when headless, and can strip detectable Playwright default args via `IgnoreDefaultArgs`. |
 | **Hardware profile** | Each context gets a random but internally consistent Windows/Chrome profile: CPU cores, memory, viewport, DPR, Chrome version, timezone, locale/languages, WebGL identity, and geolocation region. |
-| **Context shaping** | Sets coherent User-Agent, language headers, timezone, viewport, DPR, and color scheme from the same generated profile. Client Hints headers are opt-in. |
+| **Context shaping** | Sets coherent User-Agent, language headers, timezone, viewport, DPR, and color scheme from the same generated profile. Generated Chromium User-Agents follow UA reduction (`Chrome/<major>.0.0.0>`), and a caller-supplied `BrowserNewContextOptions.UserAgent` is propagated into the derived Client Hints fields when header injection is enabled. |
 | **Request shaping** | Registers early context routing so top-level document navigations get normalized navigation headers before the first page load. |
 | **CDP hardening (optional)** | Can disable selected Chromium CDP domains (e.g. Console, optionally Runtime) per page to reduce protocol surface. |
 | **Init script** | Injected before page load to reduce automation signals: hides `navigator.webdriver`; aligns `navigator`/`screen`/`window` (e.g. `hardwareConcurrency`, `deviceMemory`, `platform`, `vendor`, `languages`, `plugins`, dimensions, DPR); Client Hints and `navigator.userAgentData`; `window.chrome`; permissions/connection/battery/media/geolocation shims; timezone via `Intl`; canvas noise; WebGL vendor/renderer spoofing; WebRTC host-candidate stripping. |
