@@ -5,7 +5,7 @@ using Soenneker.Playwrights.Extensions.Stealth.Options;
 
 namespace Soenneker.Playwrights.Extensions.Stealth;
 
-internal static class StealthHeaderBuilder
+public static class StealthHeaderBuilder
 {
     public static string BuildUserAgent(HardwareProfile profile)
     {
