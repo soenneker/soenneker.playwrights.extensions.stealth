@@ -32,4 +32,10 @@ public sealed class StealthLaunchOptions
     /// Additional arguments appended after the built-in stealth defaults have been normalized.
     /// </summary>
     public List<string>? AdditionalArguments { get; set; }
+
+    /// <summary>
+    /// Playwright browser channel when <c>BrowserTypeLaunchOptions.Channel</c> is not set
+    /// (e.g. <c>chromium</c>, <c>chrome</c>, <c>msedge</c>). Defaults to <c>chromium</c>.
+    /// </summary>
+    public string Channel { get; set; } = "chromium";
 }

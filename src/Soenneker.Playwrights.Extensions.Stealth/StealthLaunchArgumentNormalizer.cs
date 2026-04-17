@@ -29,6 +29,7 @@ internal static class StealthLaunchArgumentNormalizer
     private static readonly string[] _defaultArguments =
     [
         "--disable-blink-features=AutomationControlled",
+        "--disable-features=HttpsUpgrades",
         "--enable-quic",
         "--use-gl=desktop"
     ];
@@ -88,6 +89,12 @@ internal static class StealthLaunchArgumentNormalizer
             return;
         }
 
+        if (argument.StartsWith("--disable-features=", StringComparison.OrdinalIgnoreCase))
+        {
+            MergeDisableFeatures(arguments, argument);
+            return;
+        }
+
         string key = GetArgumentKey(argument);
         int existingIndex = arguments.FindIndex(existing => string.Equals(GetArgumentKey(existing), key, StringComparison.OrdinalIgnoreCase));
 
@@ -100,6 +107,33 @@ internal static class StealthLaunchArgumentNormalizer
     private static void MergeBlinkFeatures(List<string> arguments, string argument)
     {
         const string prefix = "--disable-blink-features=";
+        string[] incoming = argument[prefix.Length..]
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        int index = arguments.FindIndex(static existing => existing.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+
+        if (index < 0)
+        {
+            arguments.Add(argument);
+            return;
+        }
+
+        string[] current = arguments[index][prefix.Length..]
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        var merged = new HashSet<string>(current, StringComparer.OrdinalIgnoreCase);
+
+        foreach (string feature in incoming)
+        {
+            merged.Add(feature);
+        }
+
+        arguments[index] = $"{prefix}{string.Join(',', merged)}";
+    }
+
+    private static void MergeDisableFeatures(List<string> arguments, string argument)
+    {
+        const string prefix = "--disable-features=";
         string[] incoming = argument[prefix.Length..]
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 

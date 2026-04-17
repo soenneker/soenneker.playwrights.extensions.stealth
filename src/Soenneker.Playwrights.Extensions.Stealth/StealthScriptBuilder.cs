@@ -1,13 +1,16 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using Soenneker.Playwrights.Extensions.Stealth.Options;
 
 namespace Soenneker.Playwrights.Extensions.Stealth;
 
 internal static class StealthScriptBuilder
 {
-    public static string Build(HardwareProfile profile)
+    public static string Build(HardwareProfile profile, StealthContextOptions? options = null)
     {
+        options ??= new StealthContextOptions();
+
         string profileJson = JsonSerializer.Serialize(new
         {
             seed = profile.Seed,
@@ -26,6 +29,8 @@ internal static class StealthScriptBuilder
             prefersDarkMode = profile.PrefersDarkMode,
             chromeVersion = profile.ChromeVersion,
             chromeMajorVersion = profile.ChromeMajorVersion,
+            isMobile = profile.IsMobile,
+            deviceModel = profile.DeviceModel,
             osPlatform = profile.OsPlatform,
             osPlatformVersion = profile.OsPlatformVersion,
             architecture = profile.Architecture,
@@ -47,15 +52,16 @@ internal static class StealthScriptBuilder
         script.AppendLine("Object.defineProperty(globalThis, '__soennekerStealthApplied', { value: true, configurable: false, enumerable: false });");
 
         AppendFoundation(script);
-        AppendNavigatorModule(script);
+        AppendNavigatorModule(script, options);
         AppendPluginModule(script);
         AppendChromeModule(script);
-        AppendPermissionModule(script);
+        AppendSpeechModule(script, options);
+        AppendPermissionModule(script, options);
         AppendWindowAndScreenModule(script);
-        AppendMediaModule(script);
-        AppendIntlModule(script);
-        AppendCanvasModule(script);
-        AppendWebGlModule(script);
+        AppendMediaModule(script, options);
+        AppendIntlModule(script, options);
+        AppendCanvasModule(script, options);
+        AppendWebGlModule(script, options);
         AppendWebRtcModule(script);
 
         script.AppendLine("})();");
@@ -110,7 +116,7 @@ internal static class StealthScriptBuilder
         );
     }
 
-    private static void AppendNavigatorModule(StringBuilder script)
+    private static void AppendNavigatorModule(StringBuilder script, StealthContextOptions options)
     {
         script.AppendLine(
             """
@@ -126,40 +132,64 @@ internal static class StealthScriptBuilder
             patchGetter(Navigator.prototype, 'userAgent', () => profile.userAgent);
 
             const brands = [
-              { brand: 'Chromium', version: String(profile.chromeMajorVersion) },
               { brand: 'Google Chrome', version: String(profile.chromeMajorVersion) },
-              { brand: 'Not(A:Brand', version: '8' }
+              { brand: 'Not.A/Brand', version: '8' },
+              { brand: 'Chromium', version: String(profile.chromeMajorVersion) }
             ];
 
-            const uaData = {
-              brands,
-              mobile: false,
-              platform: profile.osPlatform,
-              getHighEntropyValues: async hints => {
-                const values = {
-                  architecture: profile.architecture,
-                  bitness: profile.bitness,
-                  mobile: false,
-                  model: '',
-                  platform: profile.osPlatform,
-                  platformVersion: profile.osPlatformVersion,
-                  uaFullVersion: profile.chromeVersion,
-                  fullVersionList: brands,
-                  wow64: false
-                };
-
-                return Object.fromEntries(hints.map(hint => [hint, values[hint] ?? null]));
-              },
-              toJSON: () => ({
-                brands,
-                mobile: false,
-                platform: profile.osPlatform
-              })
-            };
-
-            patchGetter(Navigator.prototype, 'userAgentData', () => uaData);
+            const fullVersionList = [
+              { brand: 'Google Chrome', version: profile.chromeVersion },
+              { brand: 'Not.A/Brand', version: '8.0.0.0' },
+              { brand: 'Chromium', version: profile.chromeVersion }
+            ];
             """
         );
+
+        switch (options.Surfaces.UserAgentData)
+        {
+            case StealthSurfaceMode.Spoofed:
+                script.AppendLine(
+                    """
+
+                    const uaData = {
+                      brands,
+                      mobile: profile.isMobile,
+                      platform: profile.osPlatform,
+                      getHighEntropyValues: async hints => {
+                        const values = {
+                          architecture: profile.architecture,
+                          bitness: profile.bitness,
+                          mobile: profile.isMobile,
+                          model: profile.deviceModel,
+                          platform: profile.osPlatform,
+                          platformVersion: profile.osPlatformVersion,
+                          uaFullVersion: profile.chromeVersion,
+                          fullVersionList,
+                          wow64: false
+                        };
+
+                        return Object.fromEntries(hints.map(hint => [hint, values[hint] ?? null]));
+                      },
+                      toJSON: () => ({
+                        brands,
+                        mobile: profile.isMobile,
+                        platform: profile.osPlatform
+                      })
+                    };
+
+                    patchGetter(Navigator.prototype, 'userAgentData', () => uaData);
+                    """
+                );
+                break;
+            case StealthSurfaceMode.Disabled:
+                script.AppendLine(
+                    """
+
+                    patchGetter(Navigator.prototype, 'userAgentData', () => undefined);
+                    """
+                );
+                break;
+        }
     }
 
     private static void AppendPluginModule(StringBuilder script)
@@ -254,28 +284,107 @@ internal static class StealthScriptBuilder
         );
     }
 
-    private static void AppendPermissionModule(StringBuilder script)
+    private static void AppendSpeechModule(StringBuilder script, StealthContextOptions options)
     {
+        if (!options.WarmupSpeechVoices)
+            return;
+
         script.AppendLine(
             """
-            if (navigator.permissions?.query) {
-              const originalQuery = navigator.permissions.query.bind(navigator.permissions);
-
-              patchValue(navigator.permissions, 'query', async parameters => {
-                const delay = 20 + Math.round(rand() * 35);
-                await new Promise(resolve => setTimeout(resolve, delay));
-
-                if (parameters?.name === 'notifications') {
-                  return {
-                    state: Notification.permission,
-                    onchange: null
-                  };
-                }
-
-                return originalQuery(parameters);
+            if (typeof SpeechSynthesis !== 'undefined' && SpeechSynthesis.prototype && typeof speechSynthesis !== 'undefined' && typeof speechSynthesis.getVoices === 'function') {
+              const speechProto = SpeechSynthesis.prototype;
+              const nativeGetVoices = speechProto.getVoices;
+              patchValue(speechProto, 'getVoices', function() {
+                const voices = nativeGetVoices.call(speechSynthesis);
+                if (voices.some(v => v && /^google/i.test(v.name)))
+                  return voices;
+                return [...voices, {
+                  voiceURI: 'Google US English',
+                  name: 'Google US English',
+                  lang: 'en-US',
+                  localService: false,
+                  default: false
+                }];
               });
             }
 
+            if (typeof speechSynthesis !== 'undefined' && typeof speechSynthesis.getVoices === 'function') {
+              const synth = speechSynthesis;
+              let attempts = 0;
+
+              const warmupVoices = () => {
+                try {
+                  const voices = synth.getVoices();
+                  if (Array.isArray(voices) && voices.length > 0) {
+                    try { synth.removeEventListener?.('voiceschanged', warmupVoices); } catch {}
+                    return true;
+                  }
+                } catch {}
+
+                attempts += 1;
+                return false;
+              };
+
+              warmupVoices();
+
+              try {
+                synth.addEventListener?.('voiceschanged', warmupVoices, { once: true });
+              } catch {}
+
+              for (let i = 1; i <= 4; i += 1) {
+                setTimeout(() => {
+                  if (attempts < 6) {
+                    warmupVoices();
+                  }
+                }, i * 50);
+              }
+            }
+            """
+        );
+    }
+
+    private static void AppendPermissionModule(StringBuilder script, StealthContextOptions options)
+    {
+        switch (options.Surfaces.PermissionsQuery)
+        {
+            case StealthSurfaceMode.Spoofed:
+                script.AppendLine(
+                    """
+                    if (navigator.permissions?.query) {
+                      const originalQuery = navigator.permissions.query.bind(navigator.permissions);
+
+                      patchValue(navigator.permissions, 'query', async parameters => {
+                        const delay = 20 + Math.round(rand() * 35);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+
+                        if (parameters?.name === 'notifications') {
+                          return {
+                            state: Notification.permission,
+                            onchange: null
+                          };
+                        }
+
+                        return originalQuery(parameters);
+                      });
+                    }
+                    """
+                );
+                break;
+            case StealthSurfaceMode.Disabled:
+                script.AppendLine(
+                    """
+                    if (navigator.permissions) {
+                      patchValue(navigator.permissions, 'query', async () => {
+                        throw new DOMException('The operation is not supported.', 'NotSupportedError');
+                      });
+                    }
+                    """
+                );
+                break;
+        }
+
+        script.AppendLine(
+            """
             if (window.matchMedia) {
               const originalMatchMedia = window.matchMedia.bind(window);
               patchValue(window, 'matchMedia', query => {
@@ -319,7 +428,7 @@ internal static class StealthScriptBuilder
         );
     }
 
-    private static void AppendMediaModule(StringBuilder script)
+    private static void AppendMediaModule(StringBuilder script, StealthContextOptions options)
     {
         script.AppendLine(
             """
@@ -343,69 +452,117 @@ internal static class StealthScriptBuilder
               ondischargingtimechange: null
             }));
 
-            if (navigator.mediaDevices?.enumerateDevices) {
-              patchValue(navigator.mediaDevices, 'enumerateDevices', async () => [
-                { deviceId: 'default', groupId: 'audio-input', kind: 'audioinput', label: 'Microphone Array (Realtek(R) Audio)' },
-                { deviceId: 'default', groupId: 'audio-output', kind: 'audiooutput', label: 'Speakers (Realtek(R) Audio)' },
-                { deviceId: 'default', groupId: 'video-input', kind: 'videoinput', label: 'Integrated Camera' }
-              ]);
-            }
             """
         );
+
+        switch (options.Surfaces.MediaDevices)
+        {
+            case StealthSurfaceMode.Spoofed:
+                script.AppendLine(
+                    """
+                    if (navigator.mediaDevices?.enumerateDevices) {
+                      patchValue(navigator.mediaDevices, 'enumerateDevices', async () => [
+                        { deviceId: 'default', groupId: 'audio-input', kind: 'audioinput', label: 'Microphone Array (Realtek(R) Audio)' },
+                        { deviceId: 'default', groupId: 'audio-output', kind: 'audiooutput', label: 'Speakers (Realtek(R) Audio)' },
+                        { deviceId: 'default', groupId: 'video-input', kind: 'videoinput', label: 'Integrated Camera' }
+                      ]);
+                    }
+                    """
+                );
+                break;
+            case StealthSurfaceMode.Disabled:
+                script.AppendLine(
+                    """
+                    if (navigator.mediaDevices?.enumerateDevices) {
+                      patchValue(navigator.mediaDevices, 'enumerateDevices', async () => []);
+                    }
+                    """
+                );
+                break;
+        }
     }
 
-    private static void AppendIntlModule(StringBuilder script)
+    private static void AppendIntlModule(StringBuilder script, StealthContextOptions options)
     {
-        script.AppendLine(
-            """
-            if (document.fonts && window.FontFaceSet) {
-              const originalFonts = document.fonts;
-              const extraFonts = ['Arial', 'Calibri', 'Courier New', 'Segoe UI', 'Times New Roman'];
-              const proxy = new Proxy(originalFonts, {
-                get(target, property, receiver) {
-                  if (property === 'size')
-                    return target.size + extraFonts.length;
+        switch (options.Surfaces.DocumentFonts)
+        {
+            case StealthSurfaceMode.Spoofed:
+                script.AppendLine(
+                    """
+                    if (document.fonts && window.FontFaceSet) {
+                      const originalFonts = document.fonts;
+                      const extraFonts = ['Arial', 'Calibri', 'Courier New', 'Segoe UI', 'Times New Roman'];
+                      const proxy = new Proxy(originalFonts, {
+                        get(target, property, receiver) {
+                          if (property === 'size')
+                            return target.size + extraFonts.length;
 
-                  if (property === 'values') {
-                    return () => [
-                      ...target.values(),
-                      ...extraFonts.map(font => new FontFace(font, 'local("' + font + '")'))
-                    ];
-                  }
+                          if (property === 'values') {
+                            return () => [
+                              ...target.values(),
+                              ...extraFonts.map(font => new FontFace(font, 'local("' + font + '")'))
+                            ];
+                          }
 
-                  return Reflect.get(target, property, receiver);
-                }
-              });
+                          return Reflect.get(target, property, receiver);
+                        }
+                      });
 
-              patchValue(document, 'fonts', proxy);
-            }
-            """
-        );
+                      patchValue(document, 'fonts', proxy);
+                    }
+                    """
+                );
+                break;
+            case StealthSurfaceMode.Disabled:
+                script.AppendLine(
+                    """
+                    patchGetter(document, 'fonts', () => undefined);
+                    """
+                );
+                break;
+        }
     }
 
-    private static void AppendCanvasModule(StringBuilder script)
+    private static void AppendCanvasModule(StringBuilder script, StealthContextOptions options)
     {
-        script.AppendLine(
-            """
-            const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
-            patchValue(HTMLCanvasElement.prototype, 'toDataURL', function(...args) {
-              const context = this.getContext('2d');
+        switch (options.Surfaces.Canvas)
+        {
+            case StealthSurfaceMode.Spoofed:
+                script.AppendLine(
+                    """
+                    const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
+                    patchValue(HTMLCanvasElement.prototype, 'toDataURL', function(...args) {
+                      const context = this.getContext('2d');
 
-              if (context) {
-                try {
-                  const shift = 0.00015 + (rand() * 0.0002);
-                  context.globalAlpha = Math.max(0.9985, 1 - shift);
-                } catch {}
-              }
+                      if (context) {
+                        try {
+                          const shift = 0.00015 + (rand() * 0.0002);
+                          context.globalAlpha = Math.max(0.9985, 1 - shift);
+                        } catch {}
+                      }
 
-              return originalToDataURL.apply(this, args);
-            });
-            """
-        );
+                      return originalToDataURL.apply(this, args);
+                    });
+                    """
+                );
+                break;
+            case StealthSurfaceMode.Disabled:
+                script.AppendLine(
+                    """
+                    patchValue(HTMLCanvasElement.prototype, 'toDataURL', function() {
+                      return 'data:,';
+                    });
+                    """
+                );
+                break;
+        }
     }
 
-    private static void AppendWebGlModule(StringBuilder script)
+    private static void AppendWebGlModule(StringBuilder script, StealthContextOptions options)
     {
+        if (options.Surfaces.WebGl != StealthSurfaceMode.Spoofed)
+            return;
+
         script.AppendLine(
             """
             const patchWebGl = prototype => {

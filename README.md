@@ -61,9 +61,9 @@ await using var browser = await playwright.LaunchStealthChromium(
     new BrowserTypeLaunchOptions { Headless = true },
     new StealthLaunchOptions
     {
+        Channel = "chrome",
         IncludeNoSandboxArgument = false,
         IgnoreDetectableDefaultArguments = true,
-        ForceNewHeadlessMode = true,
         AdditionalIgnoredDefaultArguments = ["--disable-features=DialMediaRouteProvider"],
         AdditionalArguments = ["--disable-features=Translate"]
     });
@@ -78,9 +78,18 @@ var context = await browser.CreateStealthContext(
     {
         NormalizeDocumentHeaders = true,
         InjectClientHintHeaders = true,
+        WarmupSpeechVoices = true,
         EnableCdpDomainHardening = true,
         DisableConsoleDomain = true,
         DisableRuntimeDomain = false,
+        Surfaces = new StealthSurfaceOptions
+        {
+            UserAgentData = StealthSurfaceMode.Native,
+            PermissionsQuery = StealthSurfaceMode.Native,
+            DocumentFonts = StealthSurfaceMode.Native,
+            Canvas = StealthSurfaceMode.Native,
+            MediaDevices = StealthSurfaceMode.Native
+        },
         AdditionalHttpHeaders = new Dictionary<string, string>
         {
             ["DNT"] = "1"
@@ -102,13 +111,16 @@ await context.ApplyStealthAsync();
 | Area | Description |
 |------|-------------|
 | **Launch options** | Normalizes Chromium args with stealth-oriented defaults: ensures `--disable-blink-features=AutomationControlled`, forces `--headless=new` when headless, and can strip detectable Playwright default args via `IgnoreDefaultArgs`. |
-| **Hardware profile** | Each context gets a random but internally consistent Windows/Chrome profile: CPU cores, memory, viewport, DPR, Chrome version, timezone, locale/languages, WebGL identity, and geolocation region. |
-| **Context shaping** | Sets coherent User-Agent, language headers, timezone, viewport, DPR, and color scheme from the same generated profile. Generated Chromium User-Agents follow UA reduction (`Chrome/<major>.0.0.0>`), and a caller-supplied `BrowserNewContextOptions.UserAgent` is propagated into the derived Client Hints fields when header injection is enabled. |
+| **Channel selection** | If `BrowserTypeLaunchOptions.Channel` is unset, `StealthLaunchOptions.Channel` is used (default `chromium`). Set `Channel = "chrome"` (or pass `BrowserTypeLaunchOptions.Channel`) when you want the installed Google Chrome channel. |
+| **Hardware profile** | Each context gets a random but internally consistent Windows/Chrome profile: CPU cores, memory, viewport, DPR, Chrome version, timezone, locale/languages, and WebGL identity. Randomized geolocation is available as an explicit opt-in. |
+| **Context shaping** | Sets coherent User-Agent, language headers, timezone, viewport, DPR, and color scheme from the same generated profile. Generated Chromium User-Agents follow UA reduction (`Chrome/<major>.0.0.0>`), and a caller-supplied `BrowserNewContextOptions.UserAgent` is propagated into the derived Client Hints fields when header injection is enabled. Fingerprint surfaces such as `navigator.userAgentData`, `navigator.permissions.query()`, `document.fonts`, canvas, and media devices can each be left native, spoofed, or disabled. |
+| **Speech voices** | The injected init script can warm up native `speechSynthesis` voices before page scripts run, reducing the chance that a site observes an empty or not-yet-populated voice list. |
 | **Request shaping** | Registers early context routing so top-level document navigations get normalized navigation headers before the first page load. |
 | **CDP hardening (optional)** | Can disable selected Chromium CDP domains (e.g. Console, optionally Runtime) per page to reduce protocol surface. |
 | **Init script** | Injected before page load to reduce automation signals: hides `navigator.webdriver`; aligns `navigator`/`screen`/`window` (e.g. `hardwareConcurrency`, `deviceMemory`, `platform`, `vendor`, `languages`, `plugins`, dimensions, DPR); Client Hints and `navigator.userAgentData`; `window.chrome`; permissions/connection/battery/media/geolocation shims; timezone via `Intl`; canvas noise; WebGL vendor/renderer spoofing; WebRTC host-candidate stripping. |
 
 ## Options reference
 
-- **StealthLaunchOptions** — Controls how launch arguments are normalized (`RemoveDetectableArguments`, `IncludeNoSandboxArgument`, `IgnoreDetectableDefaultArguments`, `ForceNewHeadlessMode`, `AdditionalArguments`, `AdditionalIgnoredDefaultArguments`).
-- **StealthContextOptions** — Controls context and request behavior (`Proxy`, `AdditionalHttpHeaders`, `InjectClientHintHeaders`, `NormalizeDocumentHeaders`, `AlignColorScheme`, `EnableCdpDomainHardening`, `DisableConsoleDomain`, `DisableRuntimeDomain`).
+- **StealthLaunchOptions** — Controls how launch arguments are normalized (`Channel`, `RemoveDetectableArguments`, `IncludeNoSandboxArgument`, `IgnoreDetectableDefaultArguments`, `AdditionalArguments`, `AdditionalIgnoredDefaultArguments`).
+- **StealthContextOptions** — Controls context and request behavior (`Proxy`, `AdditionalHttpHeaders`, `InjectClientHintHeaders`, `NormalizeDocumentHeaders`, `AlignColorScheme`, `RandomizeGeolocation`, `WarmupSpeechVoices`, `Surfaces`, `EnableCdpDomainHardening`, `DisableConsoleDomain`, `DisableRuntimeDomain`).
+- **StealthSurfaceOptions** — Controls per-surface behavior with `StealthSurfaceMode` (`Native`, `Spoofed`, `Disabled`) for `UserAgentData`, `PermissionsQuery`, `DocumentFonts`, `Canvas`, and `MediaDevices`.

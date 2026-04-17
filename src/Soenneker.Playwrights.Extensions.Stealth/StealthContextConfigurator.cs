@@ -15,18 +15,26 @@ internal static class StealthContextConfigurator
         stealthOptions ??= new StealthContextOptions();
 
         options.UserAgent ??= StealthHeaderBuilder.BuildUserAgent(profile);
-        HardwareProfile effectiveProfile = profile.WithUserAgent(options.UserAgent);
-        options.Locale ??= profile.Locale;
-        options.TimezoneId = HardwareProfile.NormalizeTimezoneId(options.TimezoneId ?? profile.TimeZone);
+        HardwareProfile effectiveProfile = profile.WithContextOptions(options)
+                                                 .WithUserAgent(options.UserAgent);
+
+        options.Locale ??= effectiveProfile.Locale;
+        options.TimezoneId = HardwareProfile.NormalizeTimezoneId(options.TimezoneId ?? effectiveProfile.TimeZone);
         options.ViewportSize ??= new ViewportSize
         {
-            Width = profile.ScreenW,
-            Height = profile.ScreenH
+            Width = effectiveProfile.ScreenW,
+            Height = effectiveProfile.ScreenH
         };
-        options.DeviceScaleFactor ??= (float)profile.DevicePixelRatio;
+        options.DeviceScaleFactor ??= (float)effectiveProfile.DevicePixelRatio;
+        options.IsMobile ??= effectiveProfile.IsMobile;
+        options.HasTouch ??= effectiveProfile.MaxTouchPoints > 0;
         options.Proxy ??= stealthOptions.Proxy;
+
+        if (stealthOptions.RandomizeGeolocation)
+            options.Permissions = MergePermissions(options.Permissions, ["geolocation"]);
+
         if (stealthOptions.AlignColorScheme)
-            options.ColorScheme ??= profile.PrefersDarkMode ? ColorScheme.Dark : ColorScheme.Light;
+            options.ColorScheme ??= effectiveProfile.PrefersDarkMode ? ColorScheme.Dark : ColorScheme.Light;
 
         options.ExtraHTTPHeaders = MergeHeaders(options.ExtraHTTPHeaders, StealthHeaderBuilder.BuildContextHeaders(effectiveProfile, stealthOptions));
 
@@ -36,6 +44,18 @@ internal static class StealthContextConfigurator
     public static async Task AttachAsync(IBrowserContext context, HardwareProfile profile, StealthContextOptions? stealthOptions = null)
     {
         stealthOptions ??= new StealthContextOptions();
+
+        if (stealthOptions.RandomizeGeolocation)
+        {
+            await context.SetGeolocationAsync(new Geolocation
+            {
+                Latitude = (float)profile.Latitude,
+                Longitude = (float)profile.Longitude,
+                Accuracy = 18
+            }).NoSync();
+
+            await context.GrantPermissionsAsync(["geolocation"]).NoSync();
+        }
 
         if (!stealthOptions.NormalizeDocumentHeaders)
             return;
@@ -49,13 +69,35 @@ internal static class StealthContextConfigurator
             }
 
             IReadOnlyDictionary<string, string> requestHeaders = await route.Request.AllHeadersAsync().NoSync();
-            Dictionary<string, string> headers = StealthHeaderBuilder.BuildDocumentHeaders(profile, requestHeaders, route.Request.Url);
+            Dictionary<string, string> headers = StealthHeaderBuilder.BuildDocumentHeaders(profile, requestHeaders, route.Request.Url, stealthOptions);
 
             await route.ContinueAsync(new RouteContinueOptions
             {
                 Headers = headers
             }).NoSync();
         }).NoSync();
+    }
+
+    private static string[] MergePermissions(IEnumerable<string>? existingPermissions, IReadOnlyCollection<string> generatedPermissions)
+    {
+        var merged = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (existingPermissions is not null)
+        {
+            foreach (string permission in existingPermissions)
+            {
+                if (!string.IsNullOrWhiteSpace(permission))
+                    merged.Add(permission);
+            }
+        }
+
+        foreach (string permission in generatedPermissions)
+        {
+            if (!string.IsNullOrWhiteSpace(permission))
+                merged.Add(permission);
+        }
+
+        return [.. merged];
     }
 
     private static Dictionary<string, string> MergeHeaders(IEnumerable<KeyValuePair<string, string>>? existingHeaders, IReadOnlyDictionary<string, string> generatedHeaders)

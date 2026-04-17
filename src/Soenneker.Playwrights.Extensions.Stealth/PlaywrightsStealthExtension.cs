@@ -21,7 +21,7 @@ public static class PlaywrightsStealthExtension
     /// <c>--headless=new</c> when headless, and optional stripping of detectable Playwright default args).
     /// </summary>
     /// <param name="pw">The Playwright instance.</param>
-    /// <param name="options">Standard Chromium launch options; <c>Channel</c> defaults to <c>chromium</c> if not set.</param>
+    /// <param name="options">Standard Chromium launch options; when <c>Channel</c> is unset, <see cref="StealthLaunchOptions.Channel"/> is used (default <c>chromium</c>).</param>
     /// <param name="stealthOptions">Optional settings for argument normalization and default-arg stripping; when null, default stealth options are used.</param>
     /// <returns>A task that completes with the launched <see cref="IBrowser"/>.</returns>
     [Pure]
@@ -30,13 +30,20 @@ public static class PlaywrightsStealthExtension
         options ??= new BrowserTypeLaunchOptions();
         stealthOptions ??= new StealthLaunchOptions();
 
-        options.Channel ??= "chromium";
         options.Args = StealthLaunchArgumentNormalizer.Normalize(options.Args, options.Headless == true, stealthOptions);
 
         if (stealthOptions.IgnoreDetectableDefaultArguments)
             options.IgnoreDefaultArgs = MergeIgnoredDefaultArguments(options.IgnoreDefaultArgs, stealthOptions.AdditionalIgnoredDefaultArguments);
 
-        return pw.Chromium.LaunchAsync(options);
+        return LaunchStealthChromiumCore(pw, options, stealthOptions);
+    }
+
+    private static async Task<IBrowser> LaunchStealthChromiumCore(IPlaywright pw, BrowserTypeLaunchOptions options, StealthLaunchOptions stealthOptions)
+    {
+        if (string.IsNullOrWhiteSpace(options.Channel))
+            options.Channel = string.IsNullOrWhiteSpace(stealthOptions.Channel) ? "chromium" : stealthOptions.Channel;
+
+        return await pw.Chromium.LaunchAsync(options).NoSync();
     }
 
     /// <summary>
@@ -78,12 +85,44 @@ public static class PlaywrightsStealthExtension
     [Pure]
     public static async ValueTask<IBrowserContext> ApplyStealth(this IBrowserContext context, StealthContextOptions? stealthOptions = null, HardwareProfile? hardwareProfile = null)
     {
+        return await ApplyStealthCore(context, null, stealthOptions, hardwareProfile).NoSync();
+    }
+
+    /// <summary>
+    /// Applies stealth behavior to an existing browser context using the original context options when available,
+    /// allowing the generated profile and injected surfaces to stay aligned with the real context configuration.
+    /// </summary>
+    /// <param name="context">The existing browser context to configure.</param>
+    /// <param name="contextOptions">The original options used to create the context.</param>
+    /// <param name="stealthOptions">Optional stealth settings; when null, default stealth options are used.</param>
+    /// <param name="hardwareProfile">Optional profile for headers and init script; when null, a new profile is generated and aligned with the browser version.</param>
+    /// <returns>A value task that completes with the same <see cref="IBrowserContext"/> after stealth has been applied.</returns>
+    [Pure]
+    public static async ValueTask<IBrowserContext> ApplyStealth(this IBrowserContext context, BrowserNewContextOptions contextOptions,
+        StealthContextOptions? stealthOptions = null, HardwareProfile? hardwareProfile = null)
+    {
+        return await ApplyStealthCore(context, contextOptions, stealthOptions, hardwareProfile).NoSync();
+    }
+
+    private static async ValueTask<IBrowserContext> ApplyStealthCore(IBrowserContext context, BrowserNewContextOptions? contextOptions,
+        StealthContextOptions? stealthOptions, HardwareProfile? hardwareProfile)
+    {
         HardwareProfile profile = hardwareProfile ?? HardwareProfile.Generate();
         profile = profile.WithBrowserVersion(context.Browser?.Version);
 
+        if (contextOptions is not null)
+        {
+            profile = profile.WithContextOptions(contextOptions)
+                             .WithUserAgent(contextOptions.UserAgent);
+        }
+        else
+        {
+            profile = await AlignProfileWithExistingContextAsync(context, profile).NoSync();
+        }
+
         await StealthContextConfigurator.AttachAsync(context, profile, stealthOptions).NoSync();
-        await StealthProtocolHardener.AttachAsync(context, stealthOptions).NoSync();
-        await context.AddInitScriptAsync(StealthScriptBuilder.Build(profile)).NoSync();
+        await StealthProtocolHardener.AttachAsync(context, profile, stealthOptions).NoSync();
+        await context.AddInitScriptAsync(StealthScriptBuilder.Build(profile, stealthOptions)).NoSync();
 
         return context;
     }
@@ -99,6 +138,56 @@ public static class PlaywrightsStealthExtension
         await context.ApplyStealth(stealthOptions, effectiveProfile).NoSync();
 
         return context;
+    }
+
+    private static async ValueTask<HardwareProfile> AlignProfileWithExistingContextAsync(IBrowserContext context, HardwareProfile profile)
+    {
+        IReadOnlyList<IPage> pages = context.Pages;
+
+        if (pages.Count == 0)
+            return profile;
+
+        try
+        {
+            ExistingContextSnapshot? snapshot = await pages[0].EvaluateAsync<ExistingContextSnapshot>(
+                """
+                () => ({
+                  userAgent: navigator.userAgent,
+                  language: navigator.language,
+                  languages: navigator.languages,
+                  platform: navigator.platform,
+                  maxTouchPoints: navigator.maxTouchPoints,
+                  devicePixelRatio: window.devicePixelRatio,
+                  screenWidth: window.screen.width,
+                  screenHeight: window.screen.height,
+                  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                })
+                """).NoSync();
+
+            if (snapshot is null)
+                return profile;
+
+            HardwareProfile alignedProfile = profile.WithUserAgent(snapshot.UserAgent);
+            string locale = string.IsNullOrWhiteSpace(snapshot.Language) ? profile.Locale : snapshot.Language;
+            string[] languages = snapshot.Languages is { Count: > 0 } ? [.. snapshot.Languages.Where(static value => !string.IsNullOrWhiteSpace(value))] : profile.Languages;
+
+            return alignedProfile with
+            {
+                Locale = locale,
+                Languages = languages.Length == 0 ? profile.Languages : languages,
+                TimeZone = HardwareProfile.NormalizeTimezoneId(snapshot.TimeZone ?? profile.TimeZone),
+                Platform = string.IsNullOrWhiteSpace(snapshot.Platform) ? alignedProfile.Platform : snapshot.Platform,
+                MaxTouchPoints = snapshot.MaxTouchPoints,
+                IsMobile = snapshot.MaxTouchPoints > 0 || alignedProfile.IsMobile,
+                ScreenW = snapshot.ScreenWidth > 0 ? snapshot.ScreenWidth : alignedProfile.ScreenW,
+                ScreenH = snapshot.ScreenHeight > 0 ? snapshot.ScreenHeight : alignedProfile.ScreenH,
+                DevicePixelRatio = snapshot.DevicePixelRatio > 0 ? snapshot.DevicePixelRatio : alignedProfile.DevicePixelRatio
+            };
+        }
+        catch
+        {
+            return profile;
+        }
     }
 
     private static string[] MergeIgnoredDefaultArguments(IEnumerable<string>? existingIgnoredDefaults, IEnumerable<string>? additionalIgnoredDefaults)
@@ -127,5 +216,18 @@ public static class PlaywrightsStealthExtension
         }
 
         return [.. ignored];
+    }
+
+    private sealed class ExistingContextSnapshot
+    {
+        public string UserAgent { get; set; } = string.Empty;
+        public string? Language { get; set; }
+        public List<string>? Languages { get; set; }
+        public string? Platform { get; set; }
+        public int MaxTouchPoints { get; set; }
+        public double DevicePixelRatio { get; set; }
+        public int ScreenWidth { get; set; }
+        public int ScreenHeight { get; set; }
+        public string? TimeZone { get; set; }
     }
 }

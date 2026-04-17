@@ -64,6 +64,8 @@ public sealed record HardwareProfile(
     int ColorDepth,
     int PixelDepth)
 {
+    public string DeviceModel { get; init; } = string.Empty;
+    public bool IsMobile { get; init; }
     public string? UserAgentOverride { get; init; }
 
     /// <summary>
@@ -121,7 +123,10 @@ public sealed record HardwareProfile(
             DevicePixelRatio: dprs[rnd.Next(dprs.Length)], MaxTouchPoints: 0, ChromeVersion: chromeFull, ChromeMajorVersion: chromeMajor, Seed: seed,
             Latitude: Math.Round(region.lat + latJitter, 5), Longitude: Math.Round(region.lng + lngJitter, 5), TimeZone: timeZone, Locale: locale,
             Languages: languages, PrefersDarkMode: rnd.NextDouble() < 0.7, BrowserVendor: "Google Inc.", WebGlVendor: webGl.vendor,
-            WebGlRenderer: webGl.renderer, ColorDepth: 24, PixelDepth: 24);
+            WebGlRenderer: webGl.renderer, ColorDepth: 24, PixelDepth: 24)
+        {
+            IsMobile = false
+        };
     }
 
     /// <summary>
@@ -145,7 +150,9 @@ public sealed record HardwareProfile(
             TimeZone = string.IsNullOrWhiteSpace(options.TimezoneId) ? TimeZone : NormalizeTimezoneId(options.TimezoneId),
             ScreenW = options.ViewportSize?.Width ?? ScreenW,
             ScreenH = options.ViewportSize?.Height ?? ScreenH,
-            DevicePixelRatio = options.DeviceScaleFactor is null ? DevicePixelRatio : options.DeviceScaleFactor.Value
+            DevicePixelRatio = options.DeviceScaleFactor is null ? DevicePixelRatio : options.DeviceScaleFactor.Value,
+            IsMobile = options.IsMobile ?? IsMobile,
+            MaxTouchPoints = ResolveMaxTouchPoints(options, IsMobile, MaxTouchPoints)
         };
     }
 
@@ -179,12 +186,31 @@ public sealed record HardwareProfile(
         if (string.IsNullOrWhiteSpace(userAgent))
             return this with { UserAgentOverride = null };
 
-        if (!TryParseUserAgentChromiumVersion(userAgent, out string parsedVersion, out int parsedMajor))
-            return this with { UserAgentOverride = userAgent };
+        var updatedProfile = this with { UserAgentOverride = userAgent };
 
-        return this with
+        if (TryParseUserAgentEnvironment(userAgent, out UserAgentEnvironment environment))
         {
-            UserAgentOverride = userAgent,
+            updatedProfile = updatedProfile with
+            {
+                Platform = environment.Platform,
+                OsPlatform = environment.OsPlatform,
+                OsPlatformVersion = environment.OsPlatformVersion,
+                Architecture = environment.Architecture,
+                Bitness = environment.Bitness,
+                ScreenW = environment.ScreenW,
+                ScreenH = environment.ScreenH,
+                DevicePixelRatio = environment.DevicePixelRatio,
+                DeviceModel = environment.DeviceModel,
+                IsMobile = environment.IsMobile,
+                MaxTouchPoints = environment.MaxTouchPoints
+            };
+        }
+
+        if (!TryParseUserAgentChromiumVersion(userAgent, out string parsedVersion, out int parsedMajor))
+            return updatedProfile;
+
+        return updatedProfile with
+        {
             ChromeVersion = parsedVersion,
             ChromeMajorVersion = parsedMajor
         };
@@ -235,6 +261,17 @@ public sealed record HardwareProfile(
             int separatorIndex = locale.IndexOf('-');
             return separatorIndex > 0 ? [locale, locale[..separatorIndex]] : [locale];
         }
+    }
+
+    private static int ResolveMaxTouchPoints(BrowserNewContextOptions options, bool isMobile, int currentMaxTouchPoints)
+    {
+        if (options.HasTouch == true)
+            return Math.Max(currentMaxTouchPoints, 5);
+
+        if (options.HasTouch == false)
+            return 0;
+
+        return options.IsMobile == true ? Math.Max(currentMaxTouchPoints, 5) : currentMaxTouchPoints;
     }
 
     private static bool TryParseChromiumVersion(string? browserVersion, out string parsedVersion, out int parsedMajor)
@@ -296,7 +333,178 @@ public sealed record HardwareProfile(
         if (versionStartIndex >= value.Length)
             return false;
 
-        candidate = value[versionStartIndex..];
-        return true;
+        char[] versionChars = value[versionStartIndex..]
+                              .TakeWhile(static character => char.IsDigit(character) || character is '.' or '_')
+                              .ToArray();
+
+        if (versionChars.Length == 0)
+            return false;
+
+        candidate = new string(versionChars);
+        return !string.IsNullOrWhiteSpace(candidate);
     }
+
+    private static bool TryParseUserAgentEnvironment(string userAgent, out UserAgentEnvironment environment)
+    {
+        if (userAgent.Contains("Android", StringComparison.OrdinalIgnoreCase))
+        {
+            bool isMobile = userAgent.Contains("Mobile", StringComparison.OrdinalIgnoreCase);
+            environment = new UserAgentEnvironment(
+                Platform: "Linux armv8l",
+                OsPlatform: "Android",
+                OsPlatformVersion: ParseOsVersion(userAgent, "Android ", '.'),
+                Architecture: "arm",
+                Bitness: "64",
+                DeviceModel: ParseAndroidDeviceModel(userAgent),
+                IsMobile: isMobile,
+                ScreenW: isMobile ? 412 : 800,
+                ScreenH: isMobile ? 915 : 1280,
+                DevicePixelRatio: isMobile ? 2.625 : 2,
+                MaxTouchPoints: 5);
+            return true;
+        }
+
+        if (userAgent.Contains("iPhone", StringComparison.OrdinalIgnoreCase))
+        {
+            environment = new UserAgentEnvironment(
+                Platform: "iPhone",
+                OsPlatform: "iOS",
+                OsPlatformVersion: ParseOsVersion(userAgent, "iPhone OS ", '_'),
+                Architecture: "arm",
+                Bitness: "64",
+                DeviceModel: "iPhone",
+                IsMobile: true,
+                ScreenW: 390,
+                ScreenH: 844,
+                DevicePixelRatio: 3,
+                MaxTouchPoints: 5);
+            return true;
+        }
+
+        if (userAgent.Contains("iPad", StringComparison.OrdinalIgnoreCase))
+        {
+            environment = new UserAgentEnvironment(
+                Platform: "iPad",
+                OsPlatform: "iOS",
+                OsPlatformVersion: ParseOsVersion(userAgent, "CPU OS ", '_'),
+                Architecture: "arm",
+                Bitness: "64",
+                DeviceModel: "iPad",
+                IsMobile: true,
+                ScreenW: 820,
+                ScreenH: 1180,
+                DevicePixelRatio: 2,
+                MaxTouchPoints: 5);
+            return true;
+        }
+
+        if (userAgent.Contains("Macintosh", StringComparison.OrdinalIgnoreCase) || userAgent.Contains("Mac OS X", StringComparison.OrdinalIgnoreCase))
+        {
+            environment = new UserAgentEnvironment(
+                Platform: "MacIntel",
+                OsPlatform: "macOS",
+                OsPlatformVersion: ParseOsVersion(userAgent, "Mac OS X ", '_'),
+                Architecture: "x86",
+                Bitness: "64",
+                DeviceModel: string.Empty,
+                IsMobile: false,
+                ScreenW: 1512,
+                ScreenH: 982,
+                DevicePixelRatio: 2,
+                MaxTouchPoints: 0);
+            return true;
+        }
+
+        if (userAgent.Contains("Windows", StringComparison.OrdinalIgnoreCase))
+        {
+            environment = new UserAgentEnvironment(
+                Platform: "Win32",
+                OsPlatform: "Windows",
+                OsPlatformVersion: ParseOsVersion(userAgent, "Windows NT ", '.'),
+                Architecture: "x86",
+                Bitness: "64",
+                DeviceModel: string.Empty,
+                IsMobile: false,
+                ScreenW: 1920,
+                ScreenH: 1080,
+                DevicePixelRatio: 1,
+                MaxTouchPoints: 0);
+            return true;
+        }
+
+        if (userAgent.Contains("Linux", StringComparison.OrdinalIgnoreCase) || userAgent.Contains("X11", StringComparison.OrdinalIgnoreCase))
+        {
+            environment = new UserAgentEnvironment(
+                Platform: "Linux x86_64",
+                OsPlatform: "Linux",
+                OsPlatformVersion: "0.0.0",
+                Architecture: "x86",
+                Bitness: "64",
+                DeviceModel: string.Empty,
+                IsMobile: false,
+                ScreenW: 1920,
+                ScreenH: 1080,
+                DevicePixelRatio: 1,
+                MaxTouchPoints: 0);
+            return true;
+        }
+
+        environment = default;
+        return false;
+    }
+
+    private static string ParseOsVersion(string value, string token, char separator)
+    {
+        if (!TryExtractVersionCandidate(value, token, out string candidate))
+            return "0.0.0";
+
+        string normalized = candidate.Replace(separator, '.');
+        string[] segments = normalized.Split('.', StringSplitOptions.RemoveEmptyEntries);
+
+        if (segments.Length == 0)
+            return "0.0.0";
+
+        return segments.Length switch
+        {
+            1 => $"{segments[0]}.0.0",
+            2 => $"{segments[0]}.{segments[1]}.0",
+            _ => $"{segments[0]}.{segments[1]}.{segments[2]}"
+        };
+    }
+
+    private static string ParseAndroidDeviceModel(string userAgent)
+    {
+        int androidIndex = userAgent.IndexOf("Android ", StringComparison.OrdinalIgnoreCase);
+
+        if (androidIndex < 0)
+            return string.Empty;
+
+        int afterAndroidIndex = userAgent.IndexOf(';', androidIndex);
+
+        if (afterAndroidIndex < 0 || afterAndroidIndex >= userAgent.Length - 1)
+            return string.Empty;
+
+        string candidate = userAgent[(afterAndroidIndex + 1)..];
+        int closingParenIndex = candidate.IndexOf(')');
+
+        if (closingParenIndex >= 0)
+            candidate = candidate[..closingParenIndex];
+
+        string[] segments = candidate.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        for (var i = 0; i < segments.Length; i++)
+        {
+            string segment = segments[i];
+
+            if (segment.StartsWith("Build/", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            return segment;
+        }
+
+        return string.Empty;
+    }
+
+    private readonly record struct UserAgentEnvironment(string Platform, string OsPlatform, string OsPlatformVersion, string Architecture, string Bitness,
+        string DeviceModel, bool IsMobile, int ScreenW, int ScreenH, double DevicePixelRatio, int MaxTouchPoints);
 }
