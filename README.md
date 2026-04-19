@@ -7,6 +7,13 @@
 
 A .NET extension library for [Microsoft Playwright](https://playwright.dev/dotnet/) that makes browser automation harder to detect. It applies launch-argument hardening, context shaping, and init-script evasions so Chromium sessions look more like normal user sessions.
 
+## Related Repos
+
+You might also be interested in:
+
+- [soenneker.playwrights.crawler](https://github.com/soenneker/soenneker.playwrights.crawler) for crawling and mirroring sites to disk with Playwright.
+- [soenneker.playwrights.installation](https://github.com/soenneker/soenneker.playwrights.installation) for ensuring Playwright browsers are installed before first use.
+
 ## Installation
 
 ```bash
