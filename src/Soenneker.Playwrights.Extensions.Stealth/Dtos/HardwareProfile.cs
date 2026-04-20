@@ -1,11 +1,11 @@
-using Microsoft.Playwright;
-using Soenneker.Utils.Random;
 using System;
 using System.Globalization;
 using System.Linq;
+using Microsoft.Playwright;
 using Soenneker.Extensions.String;
+using Soenneker.Utils.Random;
 
-namespace Soenneker.Playwrights.Extensions.Stealth;
+namespace Soenneker.Playwrights.Extensions.Stealth.Dtos;
 
 /// <summary>
 /// A coherent hardware, browser, and location profile for a stealth Playwright context.
@@ -106,14 +106,14 @@ public sealed record HardwareProfile(
         ];
 
         const int chromeMajor = 144;
-        string chromeFull = $"{chromeMajor}.0.{rnd.Next(7000, 7999)}.{rnd.Next(50, 160)}";
+        var chromeFull = $"{chromeMajor}.0.{rnd.Next(7000, 7999)}.{rnd.Next(50, 160)}";
         string locale = GetSystemLocale();
         string[] languages = BuildLanguages(locale);
         string timeZone = NormalizeTimezoneId(TimeZoneInfo.Local.Id);
 
-        var screen = screens[rnd.Next(screens.Length)];
-        var region = regions[rnd.Next(regions.Length)];
-        var webGl = webGlProfiles[rnd.Next(webGlProfiles.Length)];
+        (int width, int height) screen = screens[rnd.Next(screens.Length)];
+        (double lat, double lng) region = regions[rnd.Next(regions.Length)];
+        (string vendor, string renderer) webGl = webGlProfiles[rnd.Next(webGlProfiles.Length)];
 
         double latJitter = (rnd.NextDouble() - 0.5) * 0.18;
         double lngJitter = (rnd.NextDouble() - 0.5) * 0.18;
@@ -186,7 +186,7 @@ public sealed record HardwareProfile(
         if (string.IsNullOrWhiteSpace(userAgent))
             return this with { UserAgentOverride = null };
 
-        var updatedProfile = this with { UserAgentOverride = userAgent };
+        HardwareProfile updatedProfile = this with { UserAgentOverride = userAgent };
 
         if (TryParseUserAgentEnvironment(userAgent, out UserAgentEnvironment environment))
         {
@@ -288,8 +288,7 @@ public sealed record HardwareProfile(
         if (slashIndex >= 0 && slashIndex < candidate.Length - 1)
             candidate = candidate[(slashIndex + 1)..];
 
-        char[] versionChars = candidate.TakeWhile(static character => char.IsDigit(character) || character == '.')
-                                       .ToArray();
+        char[] versionChars = candidate.TakeWhile(static character => char.IsDigit(character) || character == '.').ToArray();
 
         if (versionChars.Length == 0)
             return false;
@@ -314,9 +313,12 @@ public sealed record HardwareProfile(
         parsedVersion = string.Empty;
         parsedMajor = 0;
 
-        return TryExtractVersionCandidate(userAgent, "Chrome/", out string chromeCandidate) && TryParseChromiumVersion(chromeCandidate, out parsedVersion, out parsedMajor) ||
-               TryExtractVersionCandidate(userAgent, "Chromium/", out string chromiumCandidate) && TryParseChromiumVersion(chromiumCandidate, out parsedVersion, out parsedMajor) ||
-               TryExtractVersionCandidate(userAgent, "CriOS/", out string criosCandidate) && TryParseChromiumVersion(criosCandidate, out parsedVersion, out parsedMajor);
+        return TryExtractVersionCandidate(userAgent, "Chrome/", out string chromeCandidate) &&
+               TryParseChromiumVersion(chromeCandidate, out parsedVersion, out parsedMajor) ||
+               TryExtractVersionCandidate(userAgent, "Chromium/", out string chromiumCandidate) &&
+               TryParseChromiumVersion(chromiumCandidate, out parsedVersion, out parsedMajor) ||
+               TryExtractVersionCandidate(userAgent, "CriOS/", out string criosCandidate) &&
+               TryParseChromiumVersion(criosCandidate, out parsedVersion, out parsedMajor);
     }
 
     private static bool TryExtractVersionCandidate(string value, string token, out string candidate)
@@ -333,9 +335,7 @@ public sealed record HardwareProfile(
         if (versionStartIndex >= value.Length)
             return false;
 
-        char[] versionChars = value[versionStartIndex..]
-                              .TakeWhile(static character => char.IsDigit(character) || character is '.' or '_')
-                              .ToArray();
+        char[] versionChars = value[versionStartIndex..].TakeWhile(static character => char.IsDigit(character) || character is '.' or '_').ToArray();
 
         if (versionChars.Length == 0)
             return false;
@@ -349,103 +349,47 @@ public sealed record HardwareProfile(
         if (userAgent.Contains("Android", StringComparison.OrdinalIgnoreCase))
         {
             bool isMobile = userAgent.Contains("Mobile", StringComparison.OrdinalIgnoreCase);
-            environment = new UserAgentEnvironment(
-                Platform: "Linux armv8l",
-                OsPlatform: "Android",
-                OsPlatformVersion: ParseOsVersion(userAgent, "Android ", '.'),
-                Architecture: "arm",
-                Bitness: "64",
-                DeviceModel: ParseAndroidDeviceModel(userAgent),
-                IsMobile: isMobile,
-                ScreenW: isMobile ? 412 : 800,
-                ScreenH: isMobile ? 915 : 1280,
-                DevicePixelRatio: isMobile ? 2.625 : 2,
-                MaxTouchPoints: 5);
+            environment = new UserAgentEnvironment(Platform: "Linux armv8l", OsPlatform: "Android",
+                OsPlatformVersion: ParseOsVersion(userAgent, "Android ", '.'), Architecture: "arm", Bitness: "64",
+                DeviceModel: ParseAndroidDeviceModel(userAgent), IsMobile: isMobile, ScreenW: isMobile ? 412 : 800, ScreenH: isMobile ? 915 : 1280,
+                DevicePixelRatio: isMobile ? 2.625 : 2, MaxTouchPoints: 5);
             return true;
         }
 
         if (userAgent.Contains("iPhone", StringComparison.OrdinalIgnoreCase))
         {
-            environment = new UserAgentEnvironment(
-                Platform: "iPhone",
-                OsPlatform: "iOS",
-                OsPlatformVersion: ParseOsVersion(userAgent, "iPhone OS ", '_'),
-                Architecture: "arm",
-                Bitness: "64",
-                DeviceModel: "iPhone",
-                IsMobile: true,
-                ScreenW: 390,
-                ScreenH: 844,
-                DevicePixelRatio: 3,
-                MaxTouchPoints: 5);
+            environment = new UserAgentEnvironment(Platform: "iPhone", OsPlatform: "iOS", OsPlatformVersion: ParseOsVersion(userAgent, "iPhone OS ", '_'),
+                Architecture: "arm", Bitness: "64", DeviceModel: "iPhone", IsMobile: true, ScreenW: 390, ScreenH: 844, DevicePixelRatio: 3, MaxTouchPoints: 5);
             return true;
         }
 
         if (userAgent.Contains("iPad", StringComparison.OrdinalIgnoreCase))
         {
-            environment = new UserAgentEnvironment(
-                Platform: "iPad",
-                OsPlatform: "iOS",
-                OsPlatformVersion: ParseOsVersion(userAgent, "CPU OS ", '_'),
-                Architecture: "arm",
-                Bitness: "64",
-                DeviceModel: "iPad",
-                IsMobile: true,
-                ScreenW: 820,
-                ScreenH: 1180,
-                DevicePixelRatio: 2,
-                MaxTouchPoints: 5);
+            environment = new UserAgentEnvironment(Platform: "iPad", OsPlatform: "iOS", OsPlatformVersion: ParseOsVersion(userAgent, "CPU OS ", '_'),
+                Architecture: "arm", Bitness: "64", DeviceModel: "iPad", IsMobile: true, ScreenW: 820, ScreenH: 1180, DevicePixelRatio: 2, MaxTouchPoints: 5);
             return true;
         }
 
         if (userAgent.Contains("Macintosh", StringComparison.OrdinalIgnoreCase) || userAgent.Contains("Mac OS X", StringComparison.OrdinalIgnoreCase))
         {
-            environment = new UserAgentEnvironment(
-                Platform: "MacIntel",
-                OsPlatform: "macOS",
-                OsPlatformVersion: ParseOsVersion(userAgent, "Mac OS X ", '_'),
-                Architecture: "x86",
-                Bitness: "64",
-                DeviceModel: string.Empty,
-                IsMobile: false,
-                ScreenW: 1512,
-                ScreenH: 982,
-                DevicePixelRatio: 2,
+            environment = new UserAgentEnvironment(Platform: "MacIntel", OsPlatform: "macOS", OsPlatformVersion: ParseOsVersion(userAgent, "Mac OS X ", '_'),
+                Architecture: "x86", Bitness: "64", DeviceModel: string.Empty, IsMobile: false, ScreenW: 1512, ScreenH: 982, DevicePixelRatio: 2,
                 MaxTouchPoints: 0);
             return true;
         }
 
         if (userAgent.Contains("Windows", StringComparison.OrdinalIgnoreCase))
         {
-            environment = new UserAgentEnvironment(
-                Platform: "Win32",
-                OsPlatform: "Windows",
-                OsPlatformVersion: ParseOsVersion(userAgent, "Windows NT ", '.'),
-                Architecture: "x86",
-                Bitness: "64",
-                DeviceModel: string.Empty,
-                IsMobile: false,
-                ScreenW: 1920,
-                ScreenH: 1080,
-                DevicePixelRatio: 1,
+            environment = new UserAgentEnvironment(Platform: "Win32", OsPlatform: "Windows", OsPlatformVersion: ParseOsVersion(userAgent, "Windows NT ", '.'),
+                Architecture: "x86", Bitness: "64", DeviceModel: string.Empty, IsMobile: false, ScreenW: 1920, ScreenH: 1080, DevicePixelRatio: 1,
                 MaxTouchPoints: 0);
             return true;
         }
 
         if (userAgent.Contains("Linux", StringComparison.OrdinalIgnoreCase) || userAgent.Contains("X11", StringComparison.OrdinalIgnoreCase))
         {
-            environment = new UserAgentEnvironment(
-                Platform: "Linux x86_64",
-                OsPlatform: "Linux",
-                OsPlatformVersion: "0.0.0",
-                Architecture: "x86",
-                Bitness: "64",
-                DeviceModel: string.Empty,
-                IsMobile: false,
-                ScreenW: 1920,
-                ScreenH: 1080,
-                DevicePixelRatio: 1,
-                MaxTouchPoints: 0);
+            environment = new UserAgentEnvironment(Platform: "Linux x86_64", OsPlatform: "Linux", OsPlatformVersion: "0.0.0", Architecture: "x86",
+                Bitness: "64", DeviceModel: string.Empty, IsMobile: false, ScreenW: 1920, ScreenH: 1080, DevicePixelRatio: 1, MaxTouchPoints: 0);
             return true;
         }
 
@@ -505,6 +449,16 @@ public sealed record HardwareProfile(
         return string.Empty;
     }
 
-    private readonly record struct UserAgentEnvironment(string Platform, string OsPlatform, string OsPlatformVersion, string Architecture, string Bitness,
-        string DeviceModel, bool IsMobile, int ScreenW, int ScreenH, double DevicePixelRatio, int MaxTouchPoints);
+    private readonly record struct UserAgentEnvironment(
+        string Platform,
+        string OsPlatform,
+        string OsPlatformVersion,
+        string Architecture,
+        string Bitness,
+        string DeviceModel,
+        bool IsMobile,
+        int ScreenW,
+        int ScreenH,
+        double DevicePixelRatio,
+        int MaxTouchPoints);
 }

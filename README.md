@@ -41,6 +41,25 @@ var browserContext = await browser.CreateStealthContext();
 var page = await browserContext.NewPageAsync();
 ```
 
+### Connecting to a remote Playwright sidecar
+
+If Chromium is already running remotely, for example in a Docker sidecar, connect with the endpoint overload:
+
+```csharp
+using Microsoft.Playwright;
+using Soenneker.Playwrights.Extensions.Stealth;
+
+using var playwright = await Playwright.CreateAsync();
+await using var browser = await playwright.LaunchStealthChromium(
+    "ws://playwright:3000/",
+    new BrowserTypeConnectOptions());
+
+var context = await browser.CreateStealthContext();
+var page = await context.NewPageAsync();
+```
+
+In endpoint mode, stealth launch arguments are not applied because the remote browser is already running. Stealth still applies at the browser-context level via `CreateStealthContext()`.
+
 ### With proxy
 
 Pass an optional proxy into `CreateStealthContext`:

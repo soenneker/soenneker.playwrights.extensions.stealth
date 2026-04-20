@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Soenneker.Extensions.ValueTask;
+using Soenneker.Playwrights.Extensions.Stealth.Dtos;
 using Soenneker.Playwrights.Extensions.Stealth.Options;
 
 namespace Soenneker.Playwrights.Extensions.Stealth;

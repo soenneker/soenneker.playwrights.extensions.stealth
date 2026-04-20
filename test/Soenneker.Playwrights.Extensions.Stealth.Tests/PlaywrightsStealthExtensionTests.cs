@@ -1,5 +1,4 @@
 using Microsoft.Playwright;
-using Soenneker.Facts.Local;
 using Soenneker.Facts.Manual;
 using Soenneker.Playwrights.Extensions.Stealth.Options;
 using Soenneker.Playwrights.Installation.Abstract;
@@ -11,6 +10,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Soenneker.Playwrights.Extensions.Stealth.Dtos;
 using Xunit;
 
 namespace Soenneker.Playwrights.Extensions.Stealth.Tests;
@@ -205,7 +205,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
     [Fact]
     public void BuildContextOptions_OnlyAddsGeolocationPermissionWhenRandomizationIsEnabled()
     {
-        HardwareProfile profile = HardwareProfile.Generate();
+        var profile = HardwareProfile.Generate();
         MethodInfo method = typeof(PlaywrightsStealthExtension).Assembly
                                                            .GetType("Soenneker.Playwrights.Extensions.Stealth.StealthContextConfigurator")!
                                                            .GetMethod("BuildContextOptions", BindingFlags.Static | BindingFlags.Public)!;
@@ -229,7 +229,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
                                                                .GetType("Soenneker.Playwrights.Extensions.Stealth.StealthScriptBuilder")!
                                                                .GetMethod("Build", BindingFlags.Static | BindingFlags.Public)!;
 
-        string script = (string)method.Invoke(null,
+        var script = (string)method.Invoke(null,
             [HardwareProfile.Generate(), new StealthContextOptions
             {
                 Surfaces = new StealthSurfaceOptions
@@ -274,13 +274,22 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
     }
 
     [Fact]
+    public void LaunchStealthChromium_HasEndpointOverload()
+    {
+        MethodInfo? method = typeof(PlaywrightsStealthExtension).GetMethod(nameof(PlaywrightsStealthExtension.LaunchStealthChromium),
+            [typeof(IPlaywright), typeof(string), typeof(BrowserTypeConnectOptions)]);
+
+        Assert.NotNull(method);
+    }
+
+    [Fact]
     public void BuildScript_IncludesSpeechWarmup_ByDefault()
     {
         MethodInfo method = typeof(PlaywrightsStealthExtension).Assembly
                                                                .GetType("Soenneker.Playwrights.Extensions.Stealth.StealthScriptBuilder")!
                                                                .GetMethod("Build", BindingFlags.Static | BindingFlags.Public)!;
 
-        string script = (string)method.Invoke(null, [HardwareProfile.Generate(), new StealthContextOptions()])!;
+        var script = (string)method.Invoke(null, [HardwareProfile.Generate(), new StealthContextOptions()])!;
 
         Assert.Contains("typeof speechSynthesis !== 'undefined'", script);
         Assert.Contains("const voices = synth.getVoices();", script);
@@ -294,7 +303,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
                                                                .GetType("Soenneker.Playwrights.Extensions.Stealth.StealthScriptBuilder")!
                                                                .GetMethod("Build", BindingFlags.Static | BindingFlags.Public)!;
 
-        string script = (string)method.Invoke(null, [HardwareProfile.Generate(), new StealthContextOptions
+        var script = (string)method.Invoke(null, [HardwareProfile.Generate(), new StealthContextOptions
         {
             WarmupSpeechVoices = false
         }])!;

@@ -3,6 +3,7 @@ using Soenneker.Extensions.Task;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Soenneker.Playwrights.Extensions.Stealth.Dtos;
 using Soenneker.Playwrights.Extensions.Stealth.Options;
 
 namespace Soenneker.Playwrights.Extensions.Stealth;

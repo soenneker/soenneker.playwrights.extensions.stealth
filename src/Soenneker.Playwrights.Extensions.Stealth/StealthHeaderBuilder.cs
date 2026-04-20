@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Soenneker.Extensions.String;
+using Soenneker.Playwrights.Extensions.Stealth.Dtos;
 using Soenneker.Playwrights.Extensions.Stealth.Options;
 
 namespace Soenneker.Playwrights.Extensions.Stealth;
