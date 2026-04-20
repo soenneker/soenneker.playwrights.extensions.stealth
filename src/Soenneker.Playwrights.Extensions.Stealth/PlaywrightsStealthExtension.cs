@@ -62,8 +62,8 @@ public static class PlaywrightsStealthExtension
 
     private static async Task<IBrowser> LaunchStealthChromiumCore(IPlaywright pw, BrowserTypeLaunchOptions options, StealthLaunchOptions stealthOptions)
     {
-        if (string.IsNullOrWhiteSpace(options.Channel))
-            options.Channel = string.IsNullOrWhiteSpace(stealthOptions.Channel) ? "chromium" : stealthOptions.Channel;
+        if (options.Channel.IsNullOrWhiteSpace())
+            options.Channel = stealthOptions.Channel.IsNullOrWhiteSpace() ? "chromium" : stealthOptions.Channel;
 
         return await pw.Chromium.LaunchAsync(options).NoSync();
     }
