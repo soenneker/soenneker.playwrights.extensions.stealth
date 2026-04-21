@@ -1,13 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
-        <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-        <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
-        <TestingPlatformShowTestsFailure>true</TestingPlatformShowTestsFailure>
     </PropertyGroup>
 
     <ItemGroup>
@@ -15,12 +11,12 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Soenneker.Facts.Local" Version="4.0.616" />
+        <PackageReference Include="Soenneker.Tests.Attributes.Local" Version="4.0.0" />
         <PackageReference Include="Soenneker.Facts.Manual" Version="4.0.174" />
         <PackageReference Include="Soenneker.Playwrights.Installation" Version="4.0.11" />
         <PackageReference Include="Soenneker.Utils.Test" Version="4.0.314" />
-        <PackageReference Include="Soenneker.Tests.FixturedUnit" Version="4.0.2303" />
-        <PackageReference Include="xUnit.v3" Version="3.2.2" />
+        <PackageReference Include="Soenneker.Tests.HostedUnit" Version="4.0.13" />
+        <PackageReference Include="TUnit" Version="1.37.24" />
     </ItemGroup>
 
     <ItemGroup>
@@ -35,5 +31,4 @@
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
     </ItemGroup>
-
 </Project>

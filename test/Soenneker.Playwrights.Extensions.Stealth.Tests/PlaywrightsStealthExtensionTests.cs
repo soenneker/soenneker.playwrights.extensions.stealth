@@ -2,7 +2,7 @@ using Microsoft.Playwright;
 using Soenneker.Facts.Manual;
 using Soenneker.Playwrights.Extensions.Stealth.Options;
 using Soenneker.Playwrights.Installation.Abstract;
-using Soenneker.Tests.FixturedUnit;
+using Soenneker.Tests.HostedUnit;
 using Soenneker.Utils.Delay;
 using System;
 using System.Collections.Generic;
@@ -11,26 +11,25 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Soenneker.Playwrights.Extensions.Stealth.Dtos;
-using Xunit;
 
 namespace Soenneker.Playwrights.Extensions.Stealth.Tests;
 
-[Collection("Collection")]
-public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
+[ClassDataSource<Host>(Shared = SharedType.PerTestSession)]
+public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
 {
     private readonly IPlaywrightInstallationUtil _util;
 
-    public PlaywrightsStealthExtensionTests(Fixture fixture, ITestOutputHelper output) : base(fixture, output)
+    public PlaywrightsStealthExtensionTests(Host host) : base(host)
     {
         _util = Resolve<IPlaywrightInstallationUtil>();
     }
 
-    [Fact]
+    [Test]
     public void Default()
     {
     }
 
-    [Fact]
+    [Test]
     public void StealthContextOptions_Defaults_DoNotRandomizeGeolocation()
     {
         var options = new StealthContextOptions();
@@ -48,7 +47,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
         Assert.False(options.PatchDocumentFonts);
     }
 
-    [Fact]
+    [Test]
     public void BuildUserAgent_UsesReducedChromiumVersion()
     {
         HardwareProfile profile = HardwareProfile.Generate() with
@@ -63,7 +62,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
         Assert.DoesNotContain("Chrome/147.0.7727.15", userAgent);
     }
 
-    [Fact]
+    [Test]
     public void BuildContextHeaders_UsesAssignedUserAgentVersionForClientHints()
     {
         const string userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36";
@@ -91,7 +90,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
         Assert.Equal("\"\"", headers["sec-ch-ua-model"]);
     }
 
-    [Fact]
+    [Test]
     public void BuildDocumentHeaders_RewritesClientHintsUsingAssignedUserAgentVersion()
     {
         const string userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36";
@@ -129,7 +128,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
         Assert.Equal("?0", headers["sec-ch-ua-mobile"]);
     }
 
-    [Fact]
+    [Test]
     public void BuildContextHeaders_UsesAssignedMobileUserAgentPlatformAndMobileState()
     {
         const string userAgent =
@@ -156,7 +155,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
         Assert.Equal("\"Pixel 7\"", headers["sec-ch-ua-model"]);
     }
 
-    [Fact]
+    [Test]
     public void WithUserAgent_AlignsMobileProfileFromUserAgent()
     {
         const string userAgent =
@@ -174,7 +173,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
         Assert.Equal("64", profile.Bitness);
     }
 
-    [Fact]
+    [Test]
     public void BuildUserAgentOverrideParameters_UsesChromiumMetadataAlignedWithProfile()
     {
         const string userAgent =
@@ -202,7 +201,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
         Assert.Equal("64", metadata["bitness"]);
     }
 
-    [Fact]
+    [Test]
     public void BuildContextOptions_OnlyAddsGeolocationPermissionWhenRandomizationIsEnabled()
     {
         var profile = HardwareProfile.Generate();
@@ -222,7 +221,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
         Assert.Contains("geolocation", randomizedContextOptions.Permissions!, StringComparer.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [Test]
     public void BuildScript_OmitsConfigurableFingerprintShims_WhenDisabled()
     {
         MethodInfo method = typeof(PlaywrightsStealthExtension).Assembly
@@ -249,7 +248,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
         Assert.Contains("patchValue(navigator.mediaDevices, 'enumerateDevices', async () => []);", script);
     }
 
-    [Fact]
+    [Test]
     public void CompatibilityBooleanFlags_MapToSurfaceModes()
     {
         var options = new StealthContextOptions();
@@ -265,7 +264,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
         Assert.Equal(StealthSurfaceMode.Spoofed, options.Surfaces.WebGl);
     }
 
-    [Fact]
+    [Test]
     public void StealthLaunchOptions_Defaults_Channel_IsChromium()
     {
         var options = new StealthLaunchOptions();
@@ -273,7 +272,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
         Assert.Equal("chromium", options.Channel);
     }
 
-    [Fact]
+    [Test]
     public void LaunchStealthChromium_HasEndpointOverload()
     {
         MethodInfo? method = typeof(PlaywrightsStealthExtension).GetMethod(nameof(PlaywrightsStealthExtension.LaunchStealthChromium),
@@ -282,7 +281,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
         Assert.NotNull(method);
     }
 
-    [Fact]
+    [Test]
     public void BuildScript_IncludesSpeechWarmup_ByDefault()
     {
         MethodInfo method = typeof(PlaywrightsStealthExtension).Assembly
@@ -296,7 +295,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
         Assert.Contains("voiceschanged", script);
     }
 
-    [Fact]
+    [Test]
     public void BuildScript_OmitsSpeechWarmup_WhenDisabled()
     {
         MethodInfo method = typeof(PlaywrightsStealthExtension).Assembly
@@ -313,7 +312,7 @@ public sealed class PlaywrightsStealthExtensionTests : FixturedUnitTest
     }
 
     [ManualFact]
-   //[LocalFact] 
+   //[LocalOnly] 
    public async ValueTask NavigateToWebsite_WithStealth()
     {
         await _util.EnsureInstalled(CancellationToken);
