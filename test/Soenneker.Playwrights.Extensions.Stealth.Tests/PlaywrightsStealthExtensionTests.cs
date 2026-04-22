@@ -1,5 +1,4 @@
 using Microsoft.Playwright;
-using Soenneker.Facts.Manual;
 using Soenneker.Playwrights.Extensions.Stealth.Options;
 using Soenneker.Playwrights.Installation.Abstract;
 using Soenneker.Tests.HostedUnit;
@@ -311,7 +310,7 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
         Assert.DoesNotContain("const voices = synth.getVoices();", script);
     }
 
-    [ManualFact]
+    [Skip("Manual")]
    //[LocalOnly] 
    public async ValueTask NavigateToWebsite_WithStealth()
     {
@@ -342,7 +341,7 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
         await Task.Delay(Timeout.InfiniteTimeSpan);
     }
 
-    [ManualFact]
+    [Skip("Manual")]
     public async ValueTask NavigateToWebsite_WithoutStealth()
     {
         await _util.EnsureInstalled(CancellationToken);
