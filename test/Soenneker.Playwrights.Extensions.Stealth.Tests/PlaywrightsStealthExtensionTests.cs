@@ -10,7 +10,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Soenneker.Playwrights.Extensions.Stealth.Dtos;
-using Xunit;
+using AwesomeAssertions;
 
 namespace Soenneker.Playwrights.Extensions.Stealth.Tests;
 
@@ -34,17 +34,17 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
     {
         var options = new StealthContextOptions();
 
-        Xunit.Assert.False(options.RandomizeGeolocation);
-        Xunit.Assert.True(options.WarmupSpeechVoices);
-        Xunit.Assert.Equal(StealthSurfaceMode.Native, options.Surfaces.UserAgentData);
-        Xunit.Assert.Equal(StealthSurfaceMode.Native, options.Surfaces.PermissionsQuery);
-        Xunit.Assert.Equal(StealthSurfaceMode.Native, options.Surfaces.DocumentFonts);
-        Xunit.Assert.Equal(StealthSurfaceMode.Native, options.Surfaces.Canvas);
-        Xunit.Assert.Equal(StealthSurfaceMode.Native, options.Surfaces.MediaDevices);
-        Xunit.Assert.Equal(StealthSurfaceMode.Native, options.Surfaces.WebGl);
-        Xunit.Assert.False(options.PatchUserAgentData);
-        Xunit.Assert.False(options.PatchPermissionsQuery);
-        Xunit.Assert.False(options.PatchDocumentFonts);
+        options.RandomizeGeolocation.Should().BeFalse();
+        options.WarmupSpeechVoices.Should().BeTrue();
+        options.Surfaces.UserAgentData.Should().Be(StealthSurfaceMode.Native);
+        options.Surfaces.PermissionsQuery.Should().Be(StealthSurfaceMode.Native);
+        options.Surfaces.DocumentFonts.Should().Be(StealthSurfaceMode.Native);
+        options.Surfaces.Canvas.Should().Be(StealthSurfaceMode.Native);
+        options.Surfaces.MediaDevices.Should().Be(StealthSurfaceMode.Native);
+        options.Surfaces.WebGl.Should().Be(StealthSurfaceMode.Native);
+        options.PatchUserAgentData.Should().BeFalse();
+        options.PatchPermissionsQuery.Should().BeFalse();
+        options.PatchDocumentFonts.Should().BeFalse();
     }
 
     [Test]
@@ -58,8 +58,8 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
 
         string userAgent = StealthHeaderBuilder.BuildUserAgent(profile);
 
-        Xunit.Assert.Contains("Chrome/147.0.0.0", userAgent);
-        Xunit.Assert.DoesNotContain("Chrome/147.0.7727.15", userAgent);
+        userAgent.Should().Contain("Chrome/147.0.0.0");
+        userAgent.Should().NotContain("Chrome/147.0.7727.15");
     }
 
     [Test]
@@ -80,14 +80,13 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
             InjectClientHintHeaders = true
         });
 
-        Xunit.Assert.Equal(userAgent, headers["user-agent"]);
-        Xunit.Assert.Equal("\"Google Chrome\";v=\"145\", \"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"145\"", headers["sec-ch-ua"]);
-        Xunit.Assert.Equal("\"145.0.0.0\"", headers["sec-ch-ua-full-version"]);
-        Xunit.Assert.Equal("\"Google Chrome\";v=\"145.0.0.0\", \"Not.A/Brand\";v=\"8.0.0.0\", \"Chromium\";v=\"145.0.0.0\"",
-            headers["sec-ch-ua-full-version-list"]);
-        Xunit.Assert.Equal("\"Windows\"", headers["sec-ch-ua-platform"]);
-        Xunit.Assert.Equal("?0", headers["sec-ch-ua-mobile"]);
-        Xunit.Assert.Equal("\"\"", headers["sec-ch-ua-model"]);
+        headers["user-agent"].Should().Be(userAgent);
+        headers["sec-ch-ua"].Should().Be("\"Google Chrome\";v=\"145\", \"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"145\"");
+        headers["sec-ch-ua-full-version"].Should().Be("\"145.0.0.0\"");
+        headers["sec-ch-ua-full-version-list"].Should().Be("\"Google Chrome\";v=\"145.0.0.0\", \"Not.A/Brand\";v=\"8.0.0.0\", \"Chromium\";v=\"145.0.0.0\"");
+        headers["sec-ch-ua-platform"].Should().Be("\"Windows\"");
+        headers["sec-ch-ua-mobile"].Should().Be("?0");
+        headers["sec-ch-ua-model"].Should().Be("\"\"");
     }
 
     [Test]
@@ -119,13 +118,12 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
                 InjectClientHintHeaders = true
             });
 
-        Xunit.Assert.Equal(userAgent, headers["user-agent"]);
-        Xunit.Assert.Equal("\"Google Chrome\";v=\"145\", \"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"145\"", headers["sec-ch-ua"]);
-        Xunit.Assert.Equal("\"145.0.0.0\"", headers["sec-ch-ua-full-version"]);
-        Xunit.Assert.Equal("\"Google Chrome\";v=\"145.0.0.0\", \"Not.A/Brand\";v=\"8.0.0.0\", \"Chromium\";v=\"145.0.0.0\"",
-            headers["sec-ch-ua-full-version-list"]);
-        Xunit.Assert.Equal("\"Windows\"", headers["sec-ch-ua-platform"]);
-        Xunit.Assert.Equal("?0", headers["sec-ch-ua-mobile"]);
+        headers["user-agent"].Should().Be(userAgent);
+        headers["sec-ch-ua"].Should().Be("\"Google Chrome\";v=\"145\", \"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"145\"");
+        headers["sec-ch-ua-full-version"].Should().Be("\"145.0.0.0\"");
+        headers["sec-ch-ua-full-version-list"].Should().Be("\"Google Chrome\";v=\"145.0.0.0\", \"Not.A/Brand\";v=\"8.0.0.0\", \"Chromium\";v=\"145.0.0.0\"");
+        headers["sec-ch-ua-platform"].Should().Be("\"Windows\"");
+        headers["sec-ch-ua-mobile"].Should().Be("?0");
     }
 
     [Test]
@@ -147,12 +145,12 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
             InjectClientHintHeaders = true
         });
 
-        Xunit.Assert.Equal(userAgent, headers["user-agent"]);
-        Xunit.Assert.Equal("\"Google Chrome\";v=\"145\", \"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"145\"", headers["sec-ch-ua"]);
-        Xunit.Assert.Equal("\"145.0.0.0\"", headers["sec-ch-ua-full-version"]);
-        Xunit.Assert.Equal("\"Android\"", headers["sec-ch-ua-platform"]);
-        Xunit.Assert.Equal("?1", headers["sec-ch-ua-mobile"]);
-        Xunit.Assert.Equal("\"Pixel 7\"", headers["sec-ch-ua-model"]);
+        headers["user-agent"].Should().Be(userAgent);
+        headers["sec-ch-ua"].Should().Be("\"Google Chrome\";v=\"145\", \"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"145\"");
+        headers["sec-ch-ua-full-version"].Should().Be("\"145.0.0.0\"");
+        headers["sec-ch-ua-platform"].Should().Be("\"Android\"");
+        headers["sec-ch-ua-mobile"].Should().Be("?1");
+        headers["sec-ch-ua-model"].Should().Be("\"Pixel 7\"");
     }
 
     [Test]
@@ -163,14 +161,14 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
 
         HardwareProfile profile = HardwareProfile.Generate().WithUserAgent(userAgent);
 
-        Xunit.Assert.True(profile.IsMobile);
-        Xunit.Assert.Equal(5, profile.MaxTouchPoints);
-        Xunit.Assert.Equal(412, profile.ScreenW);
-        Xunit.Assert.Equal(915, profile.ScreenH);
-        Xunit.Assert.Equal(2.625, profile.DevicePixelRatio);
-        Xunit.Assert.Equal("Pixel 7", profile.DeviceModel);
-        Xunit.Assert.Equal("arm", profile.Architecture);
-        Xunit.Assert.Equal("64", profile.Bitness);
+        profile.IsMobile.Should().BeTrue();
+        profile.MaxTouchPoints.Should().Be(5);
+        profile.ScreenW.Should().Be(412);
+        profile.ScreenH.Should().Be(915);
+        profile.DevicePixelRatio.Should().Be(2.625);
+        profile.DeviceModel.Should().Be("Pixel 7");
+        profile.Architecture.Should().Be("arm");
+        profile.Bitness.Should().Be("64");
     }
 
     [Test]
@@ -187,18 +185,18 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
 
         Dictionary<string, object> parameters = StealthHeaderBuilder.BuildUserAgentOverrideParameters(profile);
 
-        Xunit.Assert.Equal(userAgent, parameters["userAgent"]);
-        Xunit.Assert.Equal("Linux armv8l", parameters["platform"]);
-        Xunit.Assert.Equal("en-US,en;q=0.9", parameters["acceptLanguage"]);
+        parameters["userAgent"].Should().Be(userAgent);
+        parameters["platform"].Should().Be("Linux armv8l");
+        parameters["acceptLanguage"].Should().Be("en-US,en;q=0.9");
 
-        var metadata = Xunit.Assert.IsType<Dictionary<string, object>>(parameters["userAgentMetadata"]);
-        Xunit.Assert.Equal("Android", metadata["platform"]);
-        Xunit.Assert.Equal("13.0.0", metadata["platformVersion"]);
-        Xunit.Assert.Equal("145.0.0.0", metadata["fullVersion"]);
-        Xunit.Assert.Equal("Pixel 7", metadata["model"]);
-        Xunit.Assert.Equal(true, metadata["mobile"]);
-        Xunit.Assert.Equal("arm", metadata["architecture"]);
-        Xunit.Assert.Equal("64", metadata["bitness"]);
+        var metadata = parameters["userAgentMetadata"].Should().BeOfType<Dictionary<string, object>>().Which;
+        metadata["platform"].Should().Be("Android");
+        metadata["platformVersion"].Should().Be("13.0.0");
+        metadata["fullVersion"].Should().Be("145.0.0.0");
+        metadata["model"].Should().Be("Pixel 7");
+        metadata["mobile"].Should().Be(true);
+        metadata["architecture"].Should().Be("arm");
+        metadata["bitness"].Should().Be("64");
     }
 
     [Test]
@@ -212,13 +210,13 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
         var defaultContextOptions = (BrowserNewContextOptions)method.Invoke(null,
             [profile, new BrowserNewContextOptions(), new StealthContextOptions()])!;
 
-        Xunit.Assert.True(defaultContextOptions.Permissions is null ||
-                    !defaultContextOptions.Permissions.Contains("geolocation", StringComparer.OrdinalIgnoreCase));
+        (defaultContextOptions.Permissions is null ||
+                    !defaultContextOptions.Permissions.Contains("geolocation", StringComparer.OrdinalIgnoreCase)).Should().BeTrue();
 
         var randomizedContextOptions = (BrowserNewContextOptions)method.Invoke(null,
             [profile, new BrowserNewContextOptions(), new StealthContextOptions { RandomizeGeolocation = true }])!;
 
-        Xunit.Assert.Contains("geolocation", randomizedContextOptions.Permissions!, StringComparer.OrdinalIgnoreCase);
+        randomizedContextOptions.Permissions!.Should().Contain(item => string.Equals(item, "geolocation", StringComparison.OrdinalIgnoreCase));
     }
 
     [Test]
@@ -241,11 +239,11 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
                 }
             }])!;
 
-        Xunit.Assert.Contains("patchGetter(Navigator.prototype, 'userAgentData', () => undefined);", script);
-        Xunit.Assert.Contains("patchValue(navigator.permissions, 'query', async () => {", script);
-        Xunit.Assert.Contains("patchGetter(document, 'fonts', () => undefined);", script);
-        Xunit.Assert.Contains("patchValue(HTMLCanvasElement.prototype, 'toDataURL', function() {", script);
-        Xunit.Assert.Contains("patchValue(navigator.mediaDevices, 'enumerateDevices', async () => []);", script);
+        script.Should().Contain("patchGetter(Navigator.prototype, 'userAgentData', () => undefined);");
+        script.Should().Contain("patchValue(navigator.permissions, 'query', async () => {");
+        script.Should().Contain("patchGetter(document, 'fonts', () => undefined);");
+        script.Should().Contain("patchValue(HTMLCanvasElement.prototype, 'toDataURL', function() {");
+        script.Should().Contain("patchValue(navigator.mediaDevices, 'enumerateDevices', async () => []);");
     }
 
     [Test]
@@ -258,10 +256,10 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
         options.PatchDocumentFonts = true;
         options.PatchWebGl = true;
 
-        Xunit.Assert.Equal(StealthSurfaceMode.Spoofed, options.Surfaces.UserAgentData);
-        Xunit.Assert.Equal(StealthSurfaceMode.Spoofed, options.Surfaces.PermissionsQuery);
-        Xunit.Assert.Equal(StealthSurfaceMode.Spoofed, options.Surfaces.DocumentFonts);
-        Xunit.Assert.Equal(StealthSurfaceMode.Spoofed, options.Surfaces.WebGl);
+        options.Surfaces.UserAgentData.Should().Be(StealthSurfaceMode.Spoofed);
+        options.Surfaces.PermissionsQuery.Should().Be(StealthSurfaceMode.Spoofed);
+        options.Surfaces.DocumentFonts.Should().Be(StealthSurfaceMode.Spoofed);
+        options.Surfaces.WebGl.Should().Be(StealthSurfaceMode.Spoofed);
     }
 
     [Test]
@@ -269,7 +267,7 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
     {
         var options = new StealthLaunchOptions();
 
-        Xunit.Assert.Equal("chromium", options.Channel);
+        options.Channel.Should().Be("chromium");
     }
 
     [Test]
@@ -278,7 +276,7 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
         MethodInfo? method = typeof(PlaywrightsStealthExtension).GetMethod(nameof(PlaywrightsStealthExtension.LaunchStealthChromium),
             [typeof(IPlaywright), typeof(string), typeof(BrowserTypeConnectOptions)]);
 
-        Xunit.Assert.NotNull(method);
+        method.Should().NotBeNull();
     }
 
     [Test]
@@ -290,9 +288,9 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
 
         var script = (string)method.Invoke(null, [HardwareProfile.Generate(), new StealthContextOptions()])!;
 
-        Xunit.Assert.Contains("typeof speechSynthesis !== 'undefined'", script);
-        Xunit.Assert.Contains("const voices = synth.getVoices();", script);
-        Xunit.Assert.Contains("voiceschanged", script);
+        script.Should().Contain("typeof speechSynthesis !== 'undefined'");
+        script.Should().Contain("const voices = synth.getVoices();");
+        script.Should().Contain("voiceschanged");
     }
 
     [Test]
@@ -307,8 +305,8 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
             WarmupSpeechVoices = false
         }])!;
 
-        Xunit.Assert.DoesNotContain("typeof speechSynthesis !== 'undefined'", script);
-        Xunit.Assert.DoesNotContain("const voices = synth.getVoices();", script);
+        script.Should().NotContain("typeof speechSynthesis !== 'undefined'");
+        script.Should().NotContain("const voices = synth.getVoices();");
     }
 
     [Skip("Manual")]
