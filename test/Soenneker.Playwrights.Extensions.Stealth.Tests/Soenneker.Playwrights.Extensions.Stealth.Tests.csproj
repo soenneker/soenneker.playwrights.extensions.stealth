@@ -13,7 +13,7 @@
     <ItemGroup>
         <PackageReference Include="Soenneker.Tests.Attributes.Local" Version="4.0.0" />
         <PackageReference Include="Soenneker.Playwrights.Installation" Version="4.0.11" />
-        <PackageReference Include="Soenneker.Utils.Test" Version="4.0.314" />
+        <PackageReference Include="Soenneker.Utils.Test" Version="4.0.316" />
         <PackageReference Include="Soenneker.Tests.HostedUnit" Version="4.0.13" />
         <PackageReference Include="TUnit" Version="1.37.24" />
         <PackageReference Include="xunit.assert" Version="2.9.3" />
