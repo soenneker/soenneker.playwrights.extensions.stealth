@@ -64,8 +64,17 @@ public sealed record HardwareProfile(
     int ColorDepth,
     int PixelDepth)
 {
+    /// <summary>
+    /// Gets or sets device model.
+    /// </summary>
     public string DeviceModel { get; init; } = string.Empty;
+    /// <summary>
+    /// Gets or sets a value indicating whether the instance is mobile.
+    /// </summary>
     public bool IsMobile { get; init; }
+    /// <summary>
+    /// Gets or sets user agent override.
+    /// </summary>
     public string? UserAgentOverride { get; init; }
 
     /// <summary>

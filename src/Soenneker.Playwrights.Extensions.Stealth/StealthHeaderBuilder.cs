@@ -6,8 +6,16 @@ using Soenneker.Playwrights.Extensions.Stealth.Options;
 
 namespace Soenneker.Playwrights.Extensions.Stealth;
 
+/// <summary>
+/// Represents the stealth header builder.
+/// </summary>
 public static class StealthHeaderBuilder
 {
+    /// <summary>
+    /// Builds user agent.
+    /// </summary>
+    /// <param name="profile">The profile.</param>
+    /// <returns>The result of the operation.</returns>
     public static string BuildUserAgent(HardwareProfile profile)
     {
         if (profile.UserAgentOverride.HasContent())
@@ -17,6 +25,12 @@ public static class StealthHeaderBuilder
                $"Chrome/{BuildReducedChromiumVersion(profile)} Safari/537.36";
     }
 
+    /// <summary>
+    /// Builds context headers.
+    /// </summary>
+    /// <param name="profile">The profile.</param>
+    /// <param name="options">The options.</param>
+    /// <returns>The result of the operation.</returns>
     public static Dictionary<string, string> BuildContextHeaders(HardwareProfile profile, StealthContextOptions? options = null)
     {
         var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -39,6 +53,11 @@ public static class StealthHeaderBuilder
         return headers;
     }
 
+    /// <summary>
+    /// Builds user agent override parameters.
+    /// </summary>
+    /// <param name="profile">The profile.</param>
+    /// <returns>The result of the operation.</returns>
     public static Dictionary<string, object> BuildUserAgentOverrideParameters(HardwareProfile profile)
     {
         return new Dictionary<string, object>(StringComparer.Ordinal)
@@ -50,6 +69,14 @@ public static class StealthHeaderBuilder
         };
     }
 
+    /// <summary>
+    /// Builds document headers.
+    /// </summary>
+    /// <param name="profile">The profile.</param>
+    /// <param name="requestHeaders">The request headers.</param>
+    /// <param name="requestUrl">The request url.</param>
+    /// <param name="options">The options.</param>
+    /// <returns>The result of the operation.</returns>
     public static Dictionary<string, string> BuildDocumentHeaders(HardwareProfile profile, IReadOnlyDictionary<string, string> requestHeaders,
         string requestUrl, StealthContextOptions? options = null)
     {
