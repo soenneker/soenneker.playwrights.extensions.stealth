@@ -309,11 +309,12 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
         script.Should().NotContain("const voices = synth.getVoices();");
     }
 
+    [Test]
     [Skip("Manual")]
    //[LocalOnly] 
-   public async ValueTask NavigateToWebsite_WithStealth()
+   public async ValueTask NavigateToWebsite_WithStealth(CancellationToken cancellationToken)
     {
-        await _util.EnsureInstalled(System.Threading.CancellationToken.None);
+        await _util.EnsureInstalled(cancellationToken);
 
         using IPlaywright playwright = await Playwright.CreateAsync();
         await using IBrowser browser = await playwright.LaunchStealthChromium(new BrowserTypeLaunchOptions { Headless = false });
@@ -335,15 +336,21 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
         await using IBrowserContext context = await browser.CreateStealthContext(new BrowserNewContextOptions(), stealthContextOptions);
         IPage page = await context.NewPageAsync();
 
-        await page.GotoAsync("https://pixelscan.net/", new PageGotoOptions { WaitUntil = WaitUntilState.Load });
+        //https://www.browserscan.net/bot-detection
+        //https://pixelscan.net/bot-check
+        //https://deviceandbrowserinfo.com/are_you_a_bot
+        //https://bot.sannysoft.com/
 
-        await Task.Delay(Timeout.InfiniteTimeSpan);
+        await page.GotoAsync("https://deviceandbrowserinfo.com/are_you_a_bot", new PageGotoOptions { WaitUntil = WaitUntilState.Load });
+
+        await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
     }
 
+    [Test]
     [Skip("Manual")]
-    public async ValueTask NavigateToWebsite_WithoutStealth()
+    public async ValueTask NavigateToWebsite_WithoutStealth(CancellationToken cancellationToken)
     {
-        await _util.EnsureInstalled(System.Threading.CancellationToken.None);
+        await _util.EnsureInstalled(cancellationToken);
 
         using IPlaywright playwright = await Playwright.CreateAsync();
         await using IBrowser browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = false });
@@ -353,6 +360,6 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
 
         await page.GotoAsync("https://pixelscan.net/", new PageGotoOptions { WaitUntil = WaitUntilState.Load });
 
-        await DelayUtil.Delay(20000);
+        await DelayUtil.Delay(20000, cancellationToken: cancellationToken);
     }
 }

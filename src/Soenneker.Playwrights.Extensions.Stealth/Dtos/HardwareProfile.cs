@@ -88,7 +88,7 @@ public sealed record HardwareProfile(
         var rnd = new Random(seed);
 
         int[] cores = [4, 6, 8, 12, 16];
-        int[] memories = [8, 16, 32];
+        int[] memories = [4, 8];
         double[] dprs = [1, 1.25, 1.5, 2];
 
         (int width, int height)[] screens =
