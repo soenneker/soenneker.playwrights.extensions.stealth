@@ -75,7 +75,7 @@ var context = await browser.CreateStealthContext(new Proxy
 
 ### Customizing launch and context
 
-Tune stealth behavior without forking Playwright:
+The defaults are recommended, but if you want to tune options further:
 
 ```csharp
 using Microsoft.Playwright;
