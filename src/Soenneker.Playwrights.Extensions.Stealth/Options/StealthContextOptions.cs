@@ -54,6 +54,13 @@ public sealed class StealthContextOptions
     public bool WarmupSpeechVoices { get; set; } = true;
 
     /// <summary>
+    /// Patch <c>Function.prototype.toString</c> so injected JavaScript shims report native-looking
+    /// source strings. Defaults to <c>false</c> because prototype integrity tests can detect the
+    /// global replacement and then classify otherwise native browser APIs as corrupted.
+    /// </summary>
+    public bool PatchFunctionToString { get; set; }
+
+    /// <summary>
     /// Compatibility shim for <see cref="StealthSurfaceOptions.UserAgentData"/>.
     /// <c>true</c> maps to <see cref="StealthSurfaceMode.Spoofed"/> and <c>false</c>
     /// maps to <see cref="StealthSurfaceMode.Native"/>.

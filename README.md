@@ -105,11 +105,16 @@ var context = await browser.CreateStealthContext(
         NormalizeDocumentHeaders = true,
         InjectClientHintHeaders = true,
         WarmupSpeechVoices = true,
+        PatchFunctionToString = false,
         EnableCdpDomainHardening = true,
         DisableConsoleDomain = true,
         DisableRuntimeDomain = false,
         Surfaces = new StealthSurfaceOptions
         {
+            NavigatorProfile = StealthSurfaceMode.Native,
+            NavigatorPlugins = StealthSurfaceMode.Native,
+            Screen = StealthSurfaceMode.Native,
+            Battery = StealthSurfaceMode.Native,
             UserAgentData = StealthSurfaceMode.Native,
             PermissionsQuery = StealthSurfaceMode.Native,
             DocumentFonts = StealthSurfaceMode.Native,
@@ -139,7 +144,7 @@ await context.ApplyStealthAsync();
 | **Launch options** | Normalizes Chromium args with stealth-oriented defaults: ensures `--disable-blink-features=AutomationControlled`, forces `--headless=new` when headless, and can strip detectable Playwright default args via `IgnoreDefaultArgs`. |
 | **Channel selection** | If `BrowserTypeLaunchOptions.Channel` is unset, `StealthLaunchOptions.Channel` is used (default `chromium`). Set `Channel = "chrome"` (or pass `BrowserTypeLaunchOptions.Channel`) when you want the installed Google Chrome channel. |
 | **Hardware profile** | Each context gets a random but internally consistent Windows/Chrome profile: CPU cores, memory, viewport, DPR, Chrome version, timezone, locale/languages, and WebGL identity. Randomized geolocation is available as an explicit opt-in. |
-| **Context shaping** | Sets coherent User-Agent, language headers, timezone, viewport, DPR, and color scheme from the same generated profile. Generated Chromium User-Agents follow UA reduction (`Chrome/<major>.0.0.0>`), and a caller-supplied `BrowserNewContextOptions.UserAgent` is propagated into the derived Client Hints fields when header injection is enabled. Fingerprint surfaces such as `navigator.userAgentData`, `navigator.permissions.query()`, `document.fonts`, canvas, and media devices can each be left native, spoofed, or disabled. |
+| **Context shaping** | Sets coherent User-Agent, language headers, timezone, viewport, DPR, and color scheme from the same generated profile. Generated Chromium User-Agents follow UA reduction (`Chrome/<major>.0.0.0>`), and a caller-supplied `BrowserNewContextOptions.UserAgent` is propagated into the derived Client Hints fields when header injection is enabled. Fingerprint surfaces such as navigator profile getters, plugins/mimeTypes, screen values, battery, `navigator.userAgentData`, `navigator.permissions.query()`, `document.fonts`, canvas, and media devices can each be left native, spoofed, or disabled. |
 | **Speech voices** | The injected init script can warm up native `speechSynthesis` voices before page scripts run, reducing the chance that a site observes an empty or not-yet-populated voice list. |
 | **Request shaping** | Registers early context routing so top-level document navigations get normalized navigation headers before the first page load. |
 | **CDP hardening (optional)** | Can disable selected Chromium CDP domains (e.g. Console, optionally Runtime) per page to reduce protocol surface. |
@@ -148,5 +153,5 @@ await context.ApplyStealthAsync();
 ## Options reference
 
 - **StealthLaunchOptions** — Controls how launch arguments are normalized (`Channel`, `RemoveDetectableArguments`, `IncludeNoSandboxArgument`, `IgnoreDetectableDefaultArguments`, `AdditionalArguments`, `AdditionalIgnoredDefaultArguments`).
-- **StealthContextOptions** — Controls context and request behavior (`Proxy`, `AdditionalHttpHeaders`, `InjectClientHintHeaders`, `NormalizeDocumentHeaders`, `AlignColorScheme`, `RandomizeGeolocation`, `WarmupSpeechVoices`, `Surfaces`, `EnableCdpDomainHardening`, `DisableConsoleDomain`, `DisableRuntimeDomain`).
-- **StealthSurfaceOptions** — Controls per-surface behavior with `StealthSurfaceMode` (`Native`, `Spoofed`, `Disabled`) for `UserAgentData`, `PermissionsQuery`, `DocumentFonts`, `Canvas`, and `MediaDevices`.
+- **StealthContextOptions** — Controls context and request behavior (`Proxy`, `AdditionalHttpHeaders`, `InjectClientHintHeaders`, `NormalizeDocumentHeaders`, `AlignColorScheme`, `RandomizeGeolocation`, `WarmupSpeechVoices`, `PatchFunctionToString`, `Surfaces`, `EnableCdpDomainHardening`, `DisableConsoleDomain`, `DisableRuntimeDomain`).
+- **StealthSurfaceOptions** — Controls per-surface behavior with `StealthSurfaceMode` (`Native`, `Spoofed`, `Disabled`) for `NavigatorProfile`, `NavigatorPlugins`, `Screen`, `Battery`, `UserAgentData`, `PermissionsQuery`, `DocumentFonts`, `Canvas`, `MediaDevices`, and `WebGl`.

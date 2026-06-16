@@ -6,8 +6,30 @@ namespace Soenneker.Playwrights.Extensions.Stealth.Options;
 public sealed class StealthSurfaceOptions
 {
     /// <summary>
-    /// Controls the injected <c>navigator.userAgentData</c> behavior.
+    /// Controls profile-derived navigator getters such as <c>hardwareConcurrency</c>, <c>deviceMemory</c>,
+    /// <c>language</c>, <c>languages</c>, <c>platform</c>, <c>vendor</c>, <c>maxTouchPoints</c>,
+    /// <c>pdfViewerEnabled</c>, and <c>userAgent</c>.
     /// </summary>
+    public StealthSurfaceMode NavigatorProfile { get; set; } = StealthSurfaceMode.Native;
+
+    /// <summary>
+    /// Controls injected <c>navigator.plugins</c> and <c>navigator.mimeTypes</c> behavior.
+    /// </summary>
+    public StealthSurfaceMode NavigatorPlugins { get; set; } = StealthSurfaceMode.Native;
+
+    /// <summary>
+    /// Controls injected screen and window dimension behavior.
+    /// </summary>
+    public StealthSurfaceMode Screen { get; set; } = StealthSurfaceMode.Native;
+
+    /// <summary>
+    /// Controls injected <c>navigator.getBattery()</c> behavior.
+    /// </summary>
+    public StealthSurfaceMode Battery { get; set; } = StealthSurfaceMode.Native;
+
+    /// <summary>
+     /// Controls the injected <c>navigator.userAgentData</c> behavior.
+     /// </summary>
     public StealthSurfaceMode UserAgentData { get; set; } = StealthSurfaceMode.Native;
 
     /// <summary>

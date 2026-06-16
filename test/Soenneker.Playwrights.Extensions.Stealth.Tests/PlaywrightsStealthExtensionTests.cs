@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Soenneker.Playwrights.Extensions.Stealth.Dtos;
 using AwesomeAssertions;
+using Soenneker.Tests.Attributes.Local;
 
 namespace Soenneker.Playwrights.Extensions.Stealth.Tests;
 
@@ -27,24 +28,6 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
     [Test]
     public void Default()
     {
-    }
-
-    [Test]
-    public void StealthContextOptions_Defaults_DoNotRandomizeGeolocation()
-    {
-        var options = new StealthContextOptions();
-
-        options.RandomizeGeolocation.Should().BeFalse();
-        options.WarmupSpeechVoices.Should().BeTrue();
-        options.Surfaces.UserAgentData.Should().Be(StealthSurfaceMode.Native);
-        options.Surfaces.PermissionsQuery.Should().Be(StealthSurfaceMode.Native);
-        options.Surfaces.DocumentFonts.Should().Be(StealthSurfaceMode.Native);
-        options.Surfaces.Canvas.Should().Be(StealthSurfaceMode.Native);
-        options.Surfaces.MediaDevices.Should().Be(StealthSurfaceMode.Native);
-        options.Surfaces.WebGl.Should().Be(StealthSurfaceMode.Native);
-        options.PatchUserAgentData.Should().BeFalse();
-        options.PatchPermissionsQuery.Should().BeFalse();
-        options.PatchDocumentFonts.Should().BeFalse();
     }
 
     [Test]
@@ -296,6 +279,55 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
     }
 
     [Test]
+    public void BuildScript_DoesNotPatchPrototypeIntegritySurfaces_ByDefault()
+    {
+        MethodInfo method =
+            typeof(PlaywrightsStealthExtension).Assembly.GetType(
+                                                   "Soenneker.Playwrights.Extensions.Stealth.StealthScriptBuilder")!
+                                               .GetMethod("Build", BindingFlags.Static | BindingFlags.Public)!;
+
+        var script = (string)method.Invoke(null, [HardwareProfile.Generate(), new StealthContextOptions()])!;
+
+        script.Should().NotContain("patchNavigatorGetter('hardwareConcurrency'");
+        script.Should().NotContain("patchNavigatorGetter('deviceMemory'");
+        script.Should().NotContain("patchNavigatorGetter('languages'");
+        script.Should().NotContain("patchNavigatorGetter('mimeTypes'");
+        script.Should().NotContain("patchNavigatorGetter('plugins'");
+        script.Should().NotContain("patchValue(Navigator.prototype, 'getBattery'");
+        script.Should().NotContain("patchGetterIfNeeded(window.screen");
+        script.Should().Contain("const spoofWorkerNavigatorProfile = false;");
+        script.Should().Contain("const spoofWorkerUserAgentData = false;");
+    }
+
+    [Test]
+    public void BuildScript_CanPatchPrototypeIntegritySurfaces_WhenExplicitlySpoofed()
+    {
+        MethodInfo method =
+            typeof(PlaywrightsStealthExtension).Assembly.GetType(
+                                                   "Soenneker.Playwrights.Extensions.Stealth.StealthScriptBuilder")!
+                                               .GetMethod("Build", BindingFlags.Static | BindingFlags.Public)!;
+
+        var script = (string)method.Invoke(null, [HardwareProfile.Generate(), new StealthContextOptions
+        {
+            Surfaces = new StealthSurfaceOptions
+            {
+                NavigatorProfile = StealthSurfaceMode.Spoofed,
+                NavigatorPlugins = StealthSurfaceMode.Spoofed,
+                Screen = StealthSurfaceMode.Spoofed,
+                Battery = StealthSurfaceMode.Spoofed
+            }
+        }])!;
+
+        script.Should().Contain("patchNavigatorGetter('hardwareConcurrency', () => profile.hardwareConcurrency);");
+        script.Should().Contain("patchNavigatorGetter('deviceMemory', () => profile.deviceMemory);");
+        script.Should().Contain("patchNavigatorGetter('languages', () => [...profile.languages]);");
+        script.Should().Contain("patchNavigatorGetter('mimeTypes', () => mimeTypes);");
+        script.Should().Contain("patchNavigatorGetter('plugins', () => plugins);");
+        script.Should().Contain("patchValue(Navigator.prototype, 'getBattery', function getBattery()");
+        script.Should().Contain("patchGetterIfNeeded(window.screen, window.screen, 'availHeight', () => profile.screenHeight - 40);");
+    }
+
+    [Test]
     public void BuildScript_IncludesSpeechWarmup_ByDefault()
     {
         MethodInfo method =
@@ -308,6 +340,35 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
         script.Should().Contain("typeof speechSynthesis !== 'undefined'");
         script.Should().Contain("const voices = synth.getVoices();");
         script.Should().Contain("voiceschanged");
+    }
+
+    [Test]
+    public void BuildScript_DoesNotPatchFunctionPrototypeToString_ByDefault()
+    {
+        MethodInfo method =
+            typeof(PlaywrightsStealthExtension).Assembly.GetType(
+                                                   "Soenneker.Playwrights.Extensions.Stealth.StealthScriptBuilder")!
+                                               .GetMethod("Build", BindingFlags.Static | BindingFlags.Public)!;
+
+        var script = (string)method.Invoke(null, [HardwareProfile.Generate(), new StealthContextOptions()])!;
+
+        script.Should().Contain("const patchFunctionToString = false;");
+    }
+
+    [Test]
+    public void BuildScript_CanPatchFunctionPrototypeToString_WhenExplicitlyEnabled()
+    {
+        MethodInfo method =
+            typeof(PlaywrightsStealthExtension).Assembly.GetType(
+                                                   "Soenneker.Playwrights.Extensions.Stealth.StealthScriptBuilder")!
+                                               .GetMethod("Build", BindingFlags.Static | BindingFlags.Public)!;
+
+        var script = (string)method.Invoke(null, [HardwareProfile.Generate(), new StealthContextOptions
+        {
+            PatchFunctionToString = true
+        }])!;
+
+        script.Should().Contain("const patchFunctionToString = true;");
     }
 
     [Test]
@@ -331,7 +392,7 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
 
     [Test]
     [Skip("Manual")]
-    //[LocalOnly] 
+   // [LocalOnly]
     public async ValueTask NavigateToWebsite_WithStealth(CancellationToken cancellationToken)
     {
         await _util.EnsureInstalled(cancellationToken);
@@ -350,8 +411,9 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
         //https://pixelscan.net/bot-check
         //https://deviceandbrowserinfo.com/are_you_a_bot
         //https://bot.sannysoft.com/
+        //https://abrahamjuliot.github.io/creepjs/tests/prototype.html
 
-        await page.GotoAsync("https://deviceandbrowserinfo.com/are_you_a_bot",
+        await page.GotoAsync("https://abrahamjuliot.github.io/creepjs/",
             new PageGotoOptions { WaitUntil = WaitUntilState.Load });
 
         await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);

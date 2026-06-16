@@ -1,8 +1,8 @@
 using System.Globalization;
-using System.Text;
 using System.Text.Json;
 using Soenneker.Playwrights.Extensions.Stealth.Dtos;
 using Soenneker.Playwrights.Extensions.Stealth.Options;
+using Soenneker.Utils.PooledStringBuilders;
 
 namespace Soenneker.Playwrights.Extensions.Stealth;
 
@@ -44,36 +44,47 @@ internal static class StealthScriptBuilder
             pixelDepth = profile.PixelDepth
         });
 
-        var script = new StringBuilder();
-        script.AppendLine("(() => {");
-        script.Append("const profile = ");
-        script.Append(profileJson);
-        script.AppendLine(";");
-        script.AppendLine("if (globalThis.__soennekerStealthApplied) return;");
-        script.AppendLine("Object.defineProperty(globalThis, '__soennekerStealthApplied', { value: true, configurable: false, enumerable: false });");
+        var script = new PooledStringBuilder();
 
-        AppendFoundation(script);
-        AppendDevToolsModule(script);
-        AppendWorkerModule(script, options);
-        AppendNavigatorModule(script, options);
-        AppendPluginModule(script);
-        AppendChromeModule(script);
-        AppendSpeechModule(script, options);
-        AppendPermissionModule(script, options);
-        AppendWindowAndScreenModule(script);
-        AppendMediaModule(script, options);
-        AppendIntlModule(script, options);
-        AppendCanvasModule(script, options);
-        AppendWebGlModule(script, options);
-        AppendWebRtcModule(script);
+        try
+        {
+            script.AppendLine("(() => {");
+            script.Append("const profile = ");
+            script.Append(profileJson);
+            script.AppendLine(";");
+            script.AppendLine("if (globalThis.__soennekerStealthApplied) return;");
+            script.AppendLine("Object.defineProperty(globalThis, '__soennekerStealthApplied', { value: true, configurable: false, enumerable: false });");
 
-        script.AppendLine("})();");
+            AppendFoundation(ref script, options);
+            AppendDevToolsModule(ref script);
+            AppendWorkerModule(ref script, options);
+            AppendNavigatorModule(ref script, options);
+            AppendPluginModule(ref script, options);
+            AppendChromeModule(ref script);
+            AppendSpeechModule(ref script, options);
+            AppendPermissionModule(ref script, options);
+            AppendWindowAndScreenModule(ref script, options);
+            AppendMediaModule(ref script, options);
+            AppendIntlModule(ref script, options);
+            AppendCanvasModule(ref script, options);
+            AppendWebGlModule(ref script, options);
+            AppendWebRtcModule(ref script);
 
-        return script.ToString();
+            script.AppendLine("})();");
+
+            return script.ToString();
+        }
+        finally
+        {
+            script.Dispose();
+        }
     }
 
-    private static void AppendFoundation(StringBuilder script)
+    private static void AppendFoundation(ref PooledStringBuilder script, StealthContextOptions options)
     {
+        script.Append("const patchFunctionToString = ");
+        script.Append(options.PatchFunctionToString ? "true" : "false");
+        script.AppendLine(";");
         script.AppendLine(
             """
             let seed = profile.seed;
@@ -93,7 +104,9 @@ internal static class StealthScriptBuilder
                 Object.defineProperty(fn, 'name', { value: name, configurable: true });
               } catch {}
 
-              nativeFunctionSources.set(fn, nativeFunctionString(name));
+              if (patchFunctionToString)
+                nativeFunctionSources.set(fn, nativeFunctionString(name));
+
               return fn;
             };
             const createNativeFunction = (name, handler) => {
@@ -114,22 +127,24 @@ internal static class StealthScriptBuilder
 
               return markNative(Object.getOwnPropertyDescriptor(container, property).get, `get ${String(property)}`);
             };
-            const functionToString = createNativeFunction('toString', function() {
-              if (nativeFunctionSources.has(this))
-                return nativeFunctionSources.get(this);
+            if (patchFunctionToString) {
+              const functionToString = createNativeFunction('toString', function() {
+                if (nativeFunctionSources.has(this))
+                  return nativeFunctionSources.get(this);
 
-              return nativeToString.call(this);
-            });
-
-            try {
-              const descriptor = Object.getOwnPropertyDescriptor(Function.prototype, 'toString');
-              Object.defineProperty(Function.prototype, 'toString', {
-                configurable: descriptor?.configurable ?? true,
-                enumerable: descriptor?.enumerable ?? false,
-                writable: descriptor?.writable ?? true,
-                value: functionToString
+                return nativeToString.call(this);
               });
-            } catch {}
+
+              try {
+                const descriptor = Object.getOwnPropertyDescriptor(Function.prototype, 'toString');
+                Object.defineProperty(Function.prototype, 'toString', {
+                  configurable: descriptor?.configurable ?? true,
+                  enumerable: descriptor?.enumerable ?? false,
+                  writable: descriptor?.writable ?? true,
+                  value: functionToString
+                });
+              } catch {}
+            }
 
             const getDescriptor = (target, property) => {
               let current = target;
@@ -231,7 +246,7 @@ internal static class StealthScriptBuilder
         );
     }
 
-    private static void AppendDevToolsModule(StringBuilder script)
+    private static void AppendDevToolsModule(ref PooledStringBuilder script)
     {
         script.AppendLine(
             """
@@ -279,20 +294,42 @@ internal static class StealthScriptBuilder
         );
     }
 
-    private static void AppendWorkerModule(StringBuilder script, StealthContextOptions options)
+    private static void AppendWorkerModule(ref PooledStringBuilder script, StealthContextOptions options)
     {
         script.Append("const patchWorkerWebGl = ");
         script.Append(options.Surfaces.WebGl == StealthSurfaceMode.Spoofed ? "true" : "false");
+        script.AppendLine(";");
+        script.Append("const spoofWorkerNavigatorProfile = ");
+        script.Append(options.Surfaces.NavigatorProfile == StealthSurfaceMode.Spoofed ? "true" : "false");
+        script.AppendLine(";");
+        script.Append("const disableWorkerNavigatorProfile = ");
+        script.Append(options.Surfaces.NavigatorProfile == StealthSurfaceMode.Disabled ? "true" : "false");
+        script.AppendLine(";");
+        script.Append("const spoofWorkerUserAgentData = ");
+        script.Append(options.Surfaces.UserAgentData == StealthSurfaceMode.Spoofed ? "true" : "false");
+        script.AppendLine(";");
+        script.Append("const disableWorkerUserAgentData = ");
+        script.Append(options.Surfaces.UserAgentData == StealthSurfaceMode.Disabled ? "true" : "false");
         script.AppendLine(";");
         script.AppendLine(
             """
             const buildWorkerStealthSource = () => {
               const workerProfileJson = JSON.stringify(profile);
               const workerPatchWebGl = JSON.stringify(patchWorkerWebGl);
+              const workerSpoofNavigatorProfile = JSON.stringify(spoofWorkerNavigatorProfile);
+              const workerDisableNavigatorProfile = JSON.stringify(disableWorkerNavigatorProfile);
+              const workerSpoofUserAgentData = JSON.stringify(spoofWorkerUserAgentData);
+              const workerDisableUserAgentData = JSON.stringify(disableWorkerUserAgentData);
+              const workerPatchFunctionToString = JSON.stringify(patchFunctionToString);
 
               return `(() => {
                 const profile = ${workerProfileJson};
                 const patchWorkerWebGl = ${workerPatchWebGl};
+                const spoofWorkerNavigatorProfile = ${workerSpoofNavigatorProfile};
+                const disableWorkerNavigatorProfile = ${workerDisableNavigatorProfile};
+                const spoofWorkerUserAgentData = ${workerSpoofUserAgentData};
+                const disableWorkerUserAgentData = ${workerDisableUserAgentData};
+                const patchFunctionToString = ${workerPatchFunctionToString};
 
                 if (globalThis.__soennekerWorkerStealthApplied)
                   return;
@@ -312,7 +349,9 @@ internal static class StealthScriptBuilder
                     Object.defineProperty(fn, 'name', { value: name, configurable: true });
                   } catch {}
 
-                  nativeFunctionSources.set(fn, nativeFunctionString(name));
+                  if (patchFunctionToString)
+                    nativeFunctionSources.set(fn, nativeFunctionString(name));
+
                   return fn;
                 };
                 const createNativeFunction = (name, handler) => {
@@ -333,22 +372,24 @@ internal static class StealthScriptBuilder
 
                   return markNative(Object.getOwnPropertyDescriptor(container, property).get, 'get ' + String(property));
                 };
-                const functionToString = createNativeFunction('toString', function() {
-                  if (nativeFunctionSources.has(this))
-                    return nativeFunctionSources.get(this);
+                if (patchFunctionToString) {
+                  const functionToString = createNativeFunction('toString', function() {
+                    if (nativeFunctionSources.has(this))
+                      return nativeFunctionSources.get(this);
 
-                  return nativeToString.call(this);
-                });
-
-                try {
-                  const descriptor = Object.getOwnPropertyDescriptor(Function.prototype, 'toString');
-                  Object.defineProperty(Function.prototype, 'toString', {
-                    configurable: descriptor?.configurable ?? true,
-                    enumerable: descriptor?.enumerable ?? false,
-                    writable: descriptor?.writable ?? true,
-                    value: functionToString
+                    return nativeToString.call(this);
                   });
-                } catch {}
+
+                  try {
+                    const descriptor = Object.getOwnPropertyDescriptor(Function.prototype, 'toString');
+                    Object.defineProperty(Function.prototype, 'toString', {
+                      configurable: descriptor?.configurable ?? true,
+                      enumerable: descriptor?.enumerable ?? false,
+                      writable: descriptor?.writable ?? true,
+                      value: functionToString
+                    });
+                  } catch {}
+                }
 
                 const getDescriptor = (target, property) => {
                   let current = target;
@@ -414,14 +455,24 @@ internal static class StealthScriptBuilder
                 };
 
                 patchWorkerNavigatorGetter('webdriver', () => false);
-                patchWorkerNavigatorGetter('hardwareConcurrency', () => profile.hardwareConcurrency);
-                patchWorkerNavigatorGetter('deviceMemory', () => profile.deviceMemory);
-                patchWorkerNavigatorGetter('platform', () => profile.platform);
-                patchWorkerNavigatorGetter('language', () => profile.locale);
-                patchWorkerNavigatorGetter('languages', () => [...profile.languages]);
-                patchWorkerNavigatorGetter('userAgent', () => profile.userAgent);
 
-                if (typeof navigator !== 'undefined' && 'userAgentData' in navigator) {
+                if (spoofWorkerNavigatorProfile) {
+                  patchWorkerNavigatorGetter('hardwareConcurrency', () => profile.hardwareConcurrency);
+                  patchWorkerNavigatorGetter('deviceMemory', () => profile.deviceMemory);
+                  patchWorkerNavigatorGetter('platform', () => profile.platform);
+                  patchWorkerNavigatorGetter('language', () => profile.locale);
+                  patchWorkerNavigatorGetter('languages', () => [...profile.languages]);
+                  patchWorkerNavigatorGetter('userAgent', () => profile.userAgent);
+                } else if (disableWorkerNavigatorProfile) {
+                  patchWorkerNavigatorGetter('hardwareConcurrency', () => undefined);
+                  patchWorkerNavigatorGetter('deviceMemory', () => undefined);
+                  patchWorkerNavigatorGetter('platform', () => '');
+                  patchWorkerNavigatorGetter('language', () => '');
+                  patchWorkerNavigatorGetter('languages', () => []);
+                  patchWorkerNavigatorGetter('userAgent', () => '');
+                }
+
+                if (spoofWorkerUserAgentData && typeof navigator !== 'undefined' && 'userAgentData' in navigator) {
                   const brands = [
                     { brand: 'Google Chrome', version: String(profile.chromeMajorVersion) },
                     { brand: 'Not.A/Brand', version: '8' },
@@ -459,6 +510,8 @@ internal static class StealthScriptBuilder
                   };
 
                   patchWorkerNavigatorGetter('userAgentData', () => uaData);
+                } else if (disableWorkerUserAgentData && typeof navigator !== 'undefined') {
+                  patchWorkerNavigatorGetter('userAgentData', () => undefined);
                 }
 
                 if (patchWorkerWebGl) {
@@ -652,22 +705,52 @@ internal static class StealthScriptBuilder
         );
     }
 
-    private static void AppendNavigatorModule(StringBuilder script, StealthContextOptions options)
+    private static void AppendNavigatorModule(ref PooledStringBuilder script, StealthContextOptions options)
     {
         script.AppendLine(
             """
             const patchNavigatorGetter = (property, getter) => patchGetterIfNeeded(Navigator.prototype, navigator, property, getter);
 
             patchNavigatorGetter('webdriver', () => false);
-            patchNavigatorGetter('hardwareConcurrency', () => profile.hardwareConcurrency);
-            patchNavigatorGetter('deviceMemory', () => profile.deviceMemory);
-            patchNavigatorGetter('platform', () => profile.platform);
-            patchNavigatorGetter('vendor', () => profile.browserVendor);
-            patchNavigatorGetter('language', () => profile.locale);
-            patchNavigatorGetter('languages', () => [...profile.languages]);
-            patchNavigatorGetter('maxTouchPoints', () => profile.maxTouchPoints);
-            patchNavigatorGetter('pdfViewerEnabled', () => true);
-            patchNavigatorGetter('userAgent', () => profile.userAgent);
+            """
+        );
+
+        switch (options.Surfaces.NavigatorProfile)
+        {
+            case StealthSurfaceMode.Spoofed:
+                script.AppendLine(
+                    """
+                    patchNavigatorGetter('hardwareConcurrency', () => profile.hardwareConcurrency);
+                    patchNavigatorGetter('deviceMemory', () => profile.deviceMemory);
+                    patchNavigatorGetter('platform', () => profile.platform);
+                    patchNavigatorGetter('vendor', () => profile.browserVendor);
+                    patchNavigatorGetter('language', () => profile.locale);
+                    patchNavigatorGetter('languages', () => [...profile.languages]);
+                    patchNavigatorGetter('maxTouchPoints', () => profile.maxTouchPoints);
+                    patchNavigatorGetter('pdfViewerEnabled', () => true);
+                    patchNavigatorGetter('userAgent', () => profile.userAgent);
+                    """
+                );
+                break;
+            case StealthSurfaceMode.Disabled:
+                script.AppendLine(
+                    """
+                    patchNavigatorGetter('hardwareConcurrency', () => undefined);
+                    patchNavigatorGetter('deviceMemory', () => undefined);
+                    patchNavigatorGetter('platform', () => '');
+                    patchNavigatorGetter('vendor', () => '');
+                    patchNavigatorGetter('language', () => '');
+                    patchNavigatorGetter('languages', () => []);
+                    patchNavigatorGetter('maxTouchPoints', () => 0);
+                    patchNavigatorGetter('pdfViewerEnabled', () => false);
+                    patchNavigatorGetter('userAgent', () => '');
+                    """
+                );
+                break;
+        }
+
+        script.AppendLine(
+            """
 
             const brands = [
               { brand: 'Google Chrome', version: String(profile.chromeMajorVersion) },
@@ -731,8 +814,25 @@ internal static class StealthScriptBuilder
         }
     }
 
-    private static void AppendPluginModule(StringBuilder script)
+    private static void AppendPluginModule(ref PooledStringBuilder script, StealthContextOptions options)
     {
+        switch (options.Surfaces.NavigatorPlugins)
+        {
+            case StealthSurfaceMode.Native:
+                return;
+            case StealthSurfaceMode.Disabled:
+                script.AppendLine(
+                    """
+                    const plugins = createArrayLike([], 'name', 'PluginArray', 'PluginArray');
+                    const mimeTypes = createArrayLike([], 'type', 'MimeTypeArray', 'MimeTypeArray');
+
+                    patchNavigatorGetter('mimeTypes', () => mimeTypes);
+                    patchNavigatorGetter('plugins', () => plugins);
+                    """
+                );
+                return;
+        }
+
         script.AppendLine(
             """
             const createMimeType = (type, suffixes, description) => {
@@ -784,7 +884,7 @@ internal static class StealthScriptBuilder
         );
     }
 
-    private static void AppendChromeModule(StringBuilder script)
+    private static void AppendChromeModule(ref PooledStringBuilder script)
     {
         script.AppendLine(
             """
@@ -844,7 +944,7 @@ internal static class StealthScriptBuilder
         );
     }
 
-    private static void AppendSpeechModule(StringBuilder script, StealthContextOptions options)
+    private static void AppendSpeechModule(ref PooledStringBuilder script, StealthContextOptions options)
     {
         if (!options.WarmupSpeechVoices)
             return;
@@ -903,7 +1003,7 @@ internal static class StealthScriptBuilder
         );
     }
 
-    private static void AppendPermissionModule(StringBuilder script, StealthContextOptions options)
+    private static void AppendPermissionModule(ref PooledStringBuilder script, StealthContextOptions options)
     {
         switch (options.Surfaces.PermissionsQuery)
         {
@@ -968,8 +1068,32 @@ internal static class StealthScriptBuilder
         );
     }
 
-    private static void AppendWindowAndScreenModule(StringBuilder script)
+    private static void AppendWindowAndScreenModule(ref PooledStringBuilder script, StealthContextOptions options)
     {
+        if (options.Surfaces.Screen == StealthSurfaceMode.Native)
+            return;
+
+        if (options.Surfaces.Screen == StealthSurfaceMode.Disabled)
+        {
+            script.AppendLine(
+                """
+                patchGetterIfNeeded(window, window, 'devicePixelRatio', () => 1);
+                patchGetter(window, 'outerWidth', () => window.innerWidth);
+                patchGetter(window, 'outerHeight', () => window.innerHeight);
+
+                if (window.screen) {
+                  patchGetter(window.screen, 'width', () => 0);
+                  patchGetter(window.screen, 'height', () => 0);
+                  patchGetter(window.screen, 'availWidth', () => 0);
+                  patchGetter(window.screen, 'availHeight', () => 0);
+                  patchGetter(window.screen, 'colorDepth', () => 0);
+                  patchGetter(window.screen, 'pixelDepth', () => 0);
+                }
+                """
+            );
+            return;
+        }
+
         script.AppendLine(
             """
             patchGetterIfNeeded(window, window, 'devicePixelRatio', () => profile.devicePixelRatio);
@@ -990,7 +1114,7 @@ internal static class StealthScriptBuilder
         );
     }
 
-    private static void AppendMediaModule(StringBuilder script, StealthContextOptions options)
+    private static void AppendMediaModule(ref PooledStringBuilder script, StealthContextOptions options)
     {
         script.AppendLine(
             """
@@ -1017,23 +1141,43 @@ internal static class StealthScriptBuilder
               patchGetter(Navigator.prototype, 'connection', () => connection);
             }
 
-            if (navigator.getBattery || Navigator.prototype.getBattery) {
-              patchValue(Navigator.prototype, 'getBattery', function getBattery() {
-                return Promise.resolve({
-                  charging: true,
-                  chargingTime: 0,
-                  dischargingTime: Infinity,
-                  level: 0.76 + (rand() * 0.1),
-                  onchargingchange: null,
-                  onlevelchange: null,
-                  onchargingtimechange: null,
-                  ondischargingtimechange: null
-                });
-              });
-            }
-
             """
         );
+
+        switch (options.Surfaces.Battery)
+        {
+            case StealthSurfaceMode.Spoofed:
+                script.AppendLine(
+                    """
+                    if (navigator.getBattery || Navigator.prototype.getBattery) {
+                      patchValue(Navigator.prototype, 'getBattery', function getBattery() {
+                        return Promise.resolve({
+                          charging: true,
+                          chargingTime: 0,
+                          dischargingTime: Infinity,
+                          level: 0.76 + (rand() * 0.1),
+                          onchargingchange: null,
+                          onlevelchange: null,
+                          onchargingtimechange: null,
+                          ondischargingtimechange: null
+                        });
+                      });
+                    }
+
+                    """
+                );
+                break;
+            case StealthSurfaceMode.Disabled:
+                script.AppendLine(
+                    """
+                    if (navigator.getBattery || Navigator.prototype.getBattery) {
+                      patchValue(Navigator.prototype, 'getBattery', undefined);
+                    }
+
+                    """
+                );
+                break;
+        }
 
         switch (options.Surfaces.MediaDevices)
         {
@@ -1062,7 +1206,7 @@ internal static class StealthScriptBuilder
         }
     }
 
-    private static void AppendIntlModule(StringBuilder script, StealthContextOptions options)
+    private static void AppendIntlModule(ref PooledStringBuilder script, StealthContextOptions options)
     {
         switch (options.Surfaces.DocumentFonts)
         {
@@ -1103,7 +1247,7 @@ internal static class StealthScriptBuilder
         }
     }
 
-    private static void AppendCanvasModule(StringBuilder script, StealthContextOptions options)
+    private static void AppendCanvasModule(ref PooledStringBuilder script, StealthContextOptions options)
     {
         switch (options.Surfaces.Canvas)
         {
@@ -1138,7 +1282,7 @@ internal static class StealthScriptBuilder
         }
     }
 
-    private static void AppendWebGlModule(StringBuilder script, StealthContextOptions options)
+    private static void AppendWebGlModule(ref PooledStringBuilder script, StealthContextOptions options)
     {
         if (options.Surfaces.WebGl != StealthSurfaceMode.Spoofed)
             return;
@@ -1167,7 +1311,7 @@ internal static class StealthScriptBuilder
         );
     }
 
-    private static void AppendWebRtcModule(StringBuilder script)
+    private static void AppendWebRtcModule(ref PooledStringBuilder script)
     {
         script.AppendLine(
             """
