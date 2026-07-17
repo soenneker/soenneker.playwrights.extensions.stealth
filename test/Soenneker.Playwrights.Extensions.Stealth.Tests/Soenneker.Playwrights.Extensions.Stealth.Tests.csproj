@@ -14,7 +14,7 @@
         <PackageReference Include="Soenneker.Tests.Attributes.Local" Version="4.0.56" />
         <PackageReference Include="Soenneker.Playwrights.Installation" Version="4.0.85" />
         <PackageReference Include="Soenneker.Utils.Test" Version="4.0.322" />
-        <PackageReference Include="Soenneker.Tests.HostedUnit" Version="4.0.126" />
+        <PackageReference Include="Soenneker.Tests.HostedUnit" Version="4.0.134" />
         <PackageReference Include="TUnit" Version="1.61.0" />
     </ItemGroup>
 
