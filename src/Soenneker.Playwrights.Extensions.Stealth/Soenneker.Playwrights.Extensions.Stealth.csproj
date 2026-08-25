@@ -45,7 +45,7 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Playwright" Version="1.62.0" />
-        <PackageReference Include="Soenneker.Extensions.String" Version="4.0.719" />
+        <PackageReference Include="Soenneker.Extensions.String" Version="4.0.721" />
         <PackageReference Include="Soenneker.Extensions.Task" Version="4.0.125" />
         <PackageReference Include="Soenneker.Extensions.ValueTask" Version="4.0.118" />
 </ItemGroup>
