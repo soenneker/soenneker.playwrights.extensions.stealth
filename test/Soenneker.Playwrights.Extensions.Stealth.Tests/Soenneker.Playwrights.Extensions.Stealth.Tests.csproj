@@ -11,10 +11,10 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Soenneker.Tests.Attributes.Local" Version="4.0.83" />
-        <PackageReference Include="Soenneker.Playwrights.Installation" Version="4.0.133" />
+        <PackageReference Include="Soenneker.Tests.Attributes.Local" Version="4.0.85" />
+        <PackageReference Include="Soenneker.Playwrights.Installation" Version="4.0.135" />
         <PackageReference Include="Soenneker.Utils.Test" Version="4.0.324" />
-        <PackageReference Include="Soenneker.Tests.HostedUnit" Version="4.0.199" />
+        <PackageReference Include="Soenneker.Tests.HostedUnit" Version="4.0.201" />
         <PackageReference Include="TUnit" Version="1.65.63" />
     </ItemGroup>
 
