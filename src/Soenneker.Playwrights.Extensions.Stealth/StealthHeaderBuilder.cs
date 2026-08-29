@@ -14,8 +14,8 @@ public static class StealthHeaderBuilder
     /// <summary>
     /// Builds user agent.
     /// </summary>
-    /// <param name="profile">The profile.</param>
-    /// <returns>The result of the operation.</returns>
+    /// <param name="profile">Browser profile used to construct the user-agent string.</param>
+    /// <returns>The text produced by build User Agent.</returns>
     public static string BuildUserAgent(HardwareProfile profile)
     {
         if (profile.UserAgentOverride.HasContent())
@@ -28,9 +28,9 @@ public static class StealthHeaderBuilder
     /// <summary>
     /// Builds context headers.
     /// </summary>
-    /// <param name="profile">The profile.</param>
-    /// <param name="options">The options.</param>
-    /// <returns>The result of the operation.</returns>
+    /// <param name="profile">Browser profile used to construct the user-agent string.</param>
+    /// <param name="options">Options to configure for the Stealth Header.</param>
+    /// <returns>The resulting dictionary.</returns>
     public static Dictionary<string, string> BuildContextHeaders(HardwareProfile profile, StealthContextOptions? options = null)
     {
         var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -56,8 +56,8 @@ public static class StealthHeaderBuilder
     /// <summary>
     /// Builds user agent override parameters.
     /// </summary>
-    /// <param name="profile">The profile.</param>
-    /// <returns>The result of the operation.</returns>
+    /// <param name="profile">Browser profile used to construct the user-agent string.</param>
+    /// <returns>The resulting dictionary.</returns>
     public static Dictionary<string, object> BuildUserAgentOverrideParameters(HardwareProfile profile)
     {
         return new Dictionary<string, object>(StringComparer.Ordinal)
@@ -72,11 +72,11 @@ public static class StealthHeaderBuilder
     /// <summary>
     /// Builds document headers.
     /// </summary>
-    /// <param name="profile">The profile.</param>
-    /// <param name="requestHeaders">The request headers.</param>
-    /// <param name="requestUrl">The request url.</param>
-    /// <param name="options">The options.</param>
-    /// <returns>The result of the operation.</returns>
+    /// <param name="profile">Browser profile used to construct the user-agent string.</param>
+    /// <param name="requestHeaders">request Headers that defines the request to send.</param>
+    /// <param name="requestUrl">URL of the request to target.</param>
+    /// <param name="options">Options to configure for the Stealth Header.</param>
+    /// <returns>The resulting dictionary.</returns>
     public static Dictionary<string, string> BuildDocumentHeaders(HardwareProfile profile, IReadOnlyDictionary<string, string> requestHeaders,
         string requestUrl, StealthContextOptions? options = null)
     {
