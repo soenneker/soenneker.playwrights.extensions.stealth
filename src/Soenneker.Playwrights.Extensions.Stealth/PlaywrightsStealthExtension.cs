@@ -158,9 +158,17 @@ public static class PlaywrightsStealthExtension
         HardwareProfile effectiveProfile = profile.WithContextOptions(contextOptions).WithUserAgent(contextOptions.UserAgent);
 
         IBrowserContext context = await browser.NewContextAsync(contextOptions).NoSync();
-        await context.ApplyStealth(stealthOptions, effectiveProfile).NoSync();
 
-        return context;
+        try
+        {
+            await context.ApplyStealth(stealthOptions, effectiveProfile).NoSync();
+            return context;
+        }
+        catch
+        {
+            await context.CloseAsync().NoSync();
+            throw;
+        }
     }
 
     private static async ValueTask<HardwareProfile> AlignProfileWithExistingContextAsync(IBrowserContext context, HardwareProfile profile)

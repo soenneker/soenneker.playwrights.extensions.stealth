@@ -13,9 +13,9 @@ public sealed class StealthLaunchOptions
     public bool RemoveDetectableArguments { get; set; } = true;
 
     /// <summary>
-    /// Include <c>--no-sandbox</c> in the normalized launch arguments.
+    /// Include <c>--no-sandbox</c> in the normalized launch arguments. Disabled by default because it removes a browser security boundary.
     /// </summary>
-    public bool IncludeNoSandboxArgument { get; set; } = true;
+    public bool IncludeNoSandboxArgument { get; set; }
 
     /// <summary>
     /// Remove known Playwright default Chromium args through <c>IgnoreDefaultArgs</c>,
