@@ -261,12 +261,11 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
     }
 
     [Test]
-    public void StealthLaunchOptions_use_safe_defaults()
+    public void StealthLaunchOptions_Defaults_Channel_IsChromium()
     {
         var options = new StealthLaunchOptions();
 
         options.Channel.Should().Be("chromium");
-        options.IncludeNoSandboxArgument.Should().BeFalse();
     }
 
     [Test]

@@ -75,9 +75,7 @@ var context = await browser.CreateStealthContext(new Proxy
 
 ### Customizing launch and context
 
-The defaults keep Chromium's sandbox enabled. Only set `IncludeNoSandboxArgument = true` in an already isolated environment where sandboxing cannot be used.
-
-To tune launch and context behavior:
+The defaults are recommended, but if you want to tune options further:
 
 ```csharp
 using Microsoft.Playwright;
@@ -154,6 +152,6 @@ await context.ApplyStealthAsync();
 
 ## Options reference
 
-- **StealthLaunchOptions** — Controls how launch arguments are normalized (`Channel`, `RemoveDetectableArguments`, `IncludeNoSandboxArgument`, `IgnoreDetectableDefaultArguments`, `AdditionalArguments`, `AdditionalIgnoredDefaultArguments`). `IncludeNoSandboxArgument` is an explicit opt-in.
+- **StealthLaunchOptions** — Controls how launch arguments are normalized (`Channel`, `RemoveDetectableArguments`, `IncludeNoSandboxArgument`, `IgnoreDetectableDefaultArguments`, `AdditionalArguments`, `AdditionalIgnoredDefaultArguments`).
 - **StealthContextOptions** — Controls context and request behavior (`Proxy`, `AdditionalHttpHeaders`, `InjectClientHintHeaders`, `NormalizeDocumentHeaders`, `AlignColorScheme`, `RandomizeGeolocation`, `WarmupSpeechVoices`, `PatchFunctionToString`, `Surfaces`, `EnableCdpDomainHardening`, `DisableConsoleDomain`, `DisableRuntimeDomain`).
 - **StealthSurfaceOptions** — Controls per-surface behavior with `StealthSurfaceMode` (`Native`, `Spoofed`, `Disabled`) for `NavigatorProfile`, `NavigatorPlugins`, `Screen`, `Battery`, `UserAgentData`, `PermissionsQuery`, `DocumentFonts`, `Canvas`, `MediaDevices`, and `WebGl`.
