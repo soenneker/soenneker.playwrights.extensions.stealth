@@ -297,21 +297,22 @@ public sealed record HardwareProfile(
         if (slashIndex >= 0 && slashIndex < candidate.Length - 1)
             candidate = candidate[(slashIndex + 1)..];
 
-        char[] versionChars = candidate.TakeWhile(static character => char.IsDigit(character) || character == '.').ToArray();
-
-        if (versionChars.Length == 0)
+        ReadOnlySpan<char> candidateSpan = candidate.AsSpan();
+        var length = 0;
+        while (length < candidateSpan.Length && (char.IsDigit(candidateSpan[length]) || candidateSpan[length] == '.'))
+            length++;
+        if (length == 0)
             return false;
 
-        string version = new(versionChars);
-
-        if (string.IsNullOrWhiteSpace(version))
+        ReadOnlySpan<char> versionSpan = candidateSpan[..length];
+        ReadOnlySpan<char> firstSegment = versionSpan.TrimStart('.');
+        int separator = firstSegment.IndexOf('.');
+        if (separator >= 0)
+            firstSegment = firstSegment[..separator];
+        if (firstSegment.IsEmpty || !int.TryParse(firstSegment, out int major))
             return false;
 
-        string[] segments = version.Split('.', StringSplitOptions.RemoveEmptyEntries);
-
-        if (segments.Length == 0 || !int.TryParse(segments[0], out int major))
-            return false;
-
+        string version = versionSpan.ToString();
         parsedVersion = version;
         parsedMajor = major;
         return true;
@@ -344,12 +345,13 @@ public sealed record HardwareProfile(
         if (versionStartIndex >= value.Length)
             return false;
 
-        char[] versionChars = value[versionStartIndex..].TakeWhile(static character => char.IsDigit(character) || character is '.' or '_').ToArray();
-
-        if (versionChars.Length == 0)
+        var versionEndIndex = versionStartIndex;
+        while (versionEndIndex < value.Length && (char.IsDigit(value[versionEndIndex]) || value[versionEndIndex] is '.' or '_'))
+            versionEndIndex++;
+        if (versionEndIndex == versionStartIndex)
             return false;
 
-        candidate = new string(versionChars);
+        candidate = value[versionStartIndex..versionEndIndex];
         return !string.IsNullOrWhiteSpace(candidate);
     }
 

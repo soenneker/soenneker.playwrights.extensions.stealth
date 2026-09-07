@@ -95,8 +95,16 @@ internal static class StealthLaunchArgumentNormalizer
             return;
         }
 
-        string key = GetArgumentKey(argument);
-        int existingIndex = arguments.FindIndex(existing => string.Equals(GetArgumentKey(existing), key, StringComparison.OrdinalIgnoreCase));
+        ReadOnlySpan<char> key = GetArgumentKeySpan(argument);
+        var existingIndex = -1;
+        for (var index = 0; index < arguments.Count; index++)
+        {
+            if (GetArgumentKeySpan(arguments[index]).Equals(key, StringComparison.OrdinalIgnoreCase))
+            {
+                existingIndex = index;
+                break;
+            }
+        }
 
         if (existingIndex >= 0)
             arguments[existingIndex] = argument;
@@ -156,6 +164,12 @@ internal static class StealthLaunchArgumentNormalizer
         }
 
         arguments[index] = $"{prefix}{string.Join(',', merged)}";
+    }
+
+    private static ReadOnlySpan<char> GetArgumentKeySpan(string argument)
+    {
+        int separatorIndex = argument.IndexOf('=');
+        return separatorIndex >= 0 ? argument.AsSpan(0, separatorIndex) : argument.AsSpan();
     }
 
     private static string GetArgumentKey(string argument)
