@@ -11,8 +11,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Soenneker.Tests.Attributes.Local" Version="4.0.109" />
-        <PackageReference Include="Soenneker.Playwrights.Installation" Version="4.0.189" />
+        <PackageReference Include="Soenneker.Tests.Attributes.Local" Version="4.0.110" />
+        <PackageReference Include="Soenneker.Playwrights.Installation" Version="4.0.190" />
         <PackageReference Include="Soenneker.Utils.Delay" Version="4.0.87" />
         <PackageReference Include="Soenneker.Utils.Test" Version="4.0.328" />
         <PackageReference Include="Soenneker.Tests.HostedUnit" Version="4.0.272" />
