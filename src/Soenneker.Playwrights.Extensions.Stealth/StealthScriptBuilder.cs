@@ -1,5 +1,5 @@
 using System.Globalization;
-using System.Text.Json;
+using System.Text.Json.Nodes;
 using Soenneker.Playwrights.Extensions.Stealth.Dtos;
 using Soenneker.Playwrights.Extensions.Stealth.Options;
 using Soenneker.Utils.PooledStringBuilders;
@@ -12,37 +12,46 @@ internal static class StealthScriptBuilder
     {
         options ??= new StealthContextOptions();
 
-        string profileJson = JsonSerializer.Serialize(new
+        JsonArray? languages = null;
+        if (profile.Languages is not null)
         {
-            seed = profile.Seed,
-            userAgent = StealthHeaderBuilder.BuildUserAgent(profile),
-            languages = profile.Languages,
-            locale = profile.Locale,
-            timezone = profile.TimeZone,
-            platform = profile.Platform,
-            browserVendor = profile.BrowserVendor,
-            hardwareConcurrency = profile.Cores,
-            deviceMemory = profile.MemoryGb,
-            screenWidth = profile.ScreenW,
-            screenHeight = profile.ScreenH,
-            devicePixelRatio = profile.DevicePixelRatio,
-            maxTouchPoints = profile.MaxTouchPoints,
-            prefersDarkMode = profile.PrefersDarkMode,
-            chromeVersion = profile.ChromeVersion,
-            chromeMajorVersion = profile.ChromeMajorVersion,
-            isMobile = profile.IsMobile,
-            deviceModel = profile.DeviceModel,
-            osPlatform = profile.OsPlatform,
-            osPlatformVersion = profile.OsPlatformVersion,
-            architecture = profile.Architecture,
-            bitness = profile.Bitness,
-            latitude = profile.Latitude.ToString("F5", CultureInfo.InvariantCulture),
-            longitude = profile.Longitude.ToString("F5", CultureInfo.InvariantCulture),
-            webGlVendor = profile.WebGlVendor,
-            webGlRenderer = profile.WebGlRenderer,
-            colorDepth = profile.ColorDepth,
-            pixelDepth = profile.PixelDepth
-        });
+            languages = new JsonArray();
+            foreach (string language in profile.Languages)
+                languages.Add((JsonNode?)language);
+        }
+
+        var profileNode = new JsonObject
+        {
+            ["seed"] = profile.Seed,
+            ["userAgent"] = StealthHeaderBuilder.BuildUserAgent(profile),
+            ["languages"] = languages,
+            ["locale"] = profile.Locale,
+            ["timezone"] = profile.TimeZone,
+            ["platform"] = profile.Platform,
+            ["browserVendor"] = profile.BrowserVendor,
+            ["hardwareConcurrency"] = profile.Cores,
+            ["deviceMemory"] = profile.MemoryGb,
+            ["screenWidth"] = profile.ScreenW,
+            ["screenHeight"] = profile.ScreenH,
+            ["devicePixelRatio"] = profile.DevicePixelRatio,
+            ["maxTouchPoints"] = profile.MaxTouchPoints,
+            ["prefersDarkMode"] = profile.PrefersDarkMode,
+            ["chromeVersion"] = profile.ChromeVersion,
+            ["chromeMajorVersion"] = profile.ChromeMajorVersion,
+            ["isMobile"] = profile.IsMobile,
+            ["deviceModel"] = profile.DeviceModel,
+            ["osPlatform"] = profile.OsPlatform,
+            ["osPlatformVersion"] = profile.OsPlatformVersion,
+            ["architecture"] = profile.Architecture,
+            ["bitness"] = profile.Bitness,
+            ["latitude"] = profile.Latitude.ToString("F5", CultureInfo.InvariantCulture),
+            ["longitude"] = profile.Longitude.ToString("F5", CultureInfo.InvariantCulture),
+            ["webGlVendor"] = profile.WebGlVendor,
+            ["webGlRenderer"] = profile.WebGlRenderer,
+            ["colorDepth"] = profile.ColorDepth,
+            ["pixelDepth"] = profile.PixelDepth
+        };
+        string profileJson = profileNode.ToJsonString();
 
         var script = new PooledStringBuilder();
 
