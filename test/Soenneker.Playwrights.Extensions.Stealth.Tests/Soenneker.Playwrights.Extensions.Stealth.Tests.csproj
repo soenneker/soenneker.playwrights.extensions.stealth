@@ -12,7 +12,7 @@
 
     <ItemGroup>
         <PackageReference Include="Soenneker.Tests.Attributes.Local" Version="4.0.122" />
-        <PackageReference Include="Soenneker.Playwrights.Installation" Version="4.0.203" />
+        <PackageReference Include="Soenneker.Playwrights.Installation" Version="4.0.204" />
         <PackageReference Include="Soenneker.Utils.Delay" Version="4.0.91" />
         <PackageReference Include="Soenneker.Utils.Test" Version="4.0.331" />
         <PackageReference Include="Soenneker.Tests.HostedUnit" Version="4.0.294" />
