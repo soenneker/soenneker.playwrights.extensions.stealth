@@ -239,7 +239,7 @@ public sealed record HardwareProfile(
         return timeZoneId;
     }
 
-    private static string GetSystemLocale()
+    internal static string GetSystemLocale()
     {
         string locale = CultureInfo.CurrentUICulture.Name;
 

@@ -178,7 +178,7 @@ public sealed class PlaywrightsStealthExtensionTests : HostedUnitTest
 
         parameters["userAgent"].Should().Be(userAgent);
         parameters["platform"].Should().Be("Linux armv8l");
-        parameters["acceptLanguage"].Should().Be("en-US,en;q=0.9");
+        parameters["acceptLanguage"].Should().Be("en-US");
 
         var metadata = parameters["userAgentMetadata"].Should().BeOfType<Dictionary<string, object>>().Which;
         metadata["platform"].Should().Be("Android");

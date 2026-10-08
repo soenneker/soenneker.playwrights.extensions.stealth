@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Soenneker.Playwrights.Extensions.Stealth.Options;
 using Soenneker.Extensions.String;
+using Soenneker.Playwrights.Extensions.Stealth.Dtos;
 
 namespace Soenneker.Playwrights.Extensions.Stealth;
 
@@ -30,8 +31,7 @@ internal static class StealthLaunchArgumentNormalizer
     [
         "--disable-blink-features=AutomationControlled",
         "--disable-features=HttpsUpgrades",
-        "--enable-quic",
-        "--use-gl=desktop"
+        "--enable-quic"
     ];
 
     private static readonly HashSet<string> _detectableArguments = new(DetectableDefaultArgumentsToIgnore, StringComparer.OrdinalIgnoreCase);
@@ -60,6 +60,11 @@ internal static class StealthLaunchArgumentNormalizer
         {
             AddOrMerge(result, argument);
         }
+
+        // Chromium workers inherit startup languages rather than context locale emulation.
+        // Match the generated context locale unless the caller already supplied a language list.
+        if (!result.Any(static argument => GetArgumentKeySpan(argument).Equals("--accept-lang", StringComparison.OrdinalIgnoreCase)))
+            AddOrMerge(result, $"--accept-lang={HardwareProfile.GetSystemLocale()}");
 
         if (options.IncludeNoSandboxArgument)
             AddOrMerge(result, "--no-sandbox");

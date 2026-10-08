@@ -21,6 +21,8 @@ public static class PlaywrightsStealthExtension
     /// <summary>
     /// Launches a Chromium browser with stealth-oriented launch arguments (e.g. <c>--disable-blink-features=AutomationControlled</c>,
     /// <c>--headless=new</c> when headless, and optional stripping of detectable Playwright default args).
+    /// By default, an owned loopback CDP relay disables inspector stack capture before page execution;
+    /// see <see cref="StealthLaunchOptions.HardenRuntimeStackCapture"/> for transport and diagnostic behavior.
     /// </summary>
     /// <param name="pw">The Playwright instance.</param>
     /// <param name="options">Standard Chromium launch options; when <c>Channel</c> is unset, <see cref="StealthLaunchOptions.Channel"/> is used (default <c>chromium</c>).</param>
@@ -65,7 +67,9 @@ public static class PlaywrightsStealthExtension
         if (options.Channel.IsNullOrWhiteSpace())
             options.Channel = stealthOptions.Channel.IsNullOrWhiteSpace() ? "chromium" : stealthOptions.Channel;
 
-        return await pw.Chromium.LaunchAsync(options).NoSync();
+        return stealthOptions.HardenRuntimeStackCapture
+            ? await StealthRuntimeLauncher.LaunchAsync(pw, options).NoSync()
+            : await pw.Chromium.LaunchAsync(options).NoSync();
     }
 
     /// <summary>

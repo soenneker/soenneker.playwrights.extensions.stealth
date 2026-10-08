@@ -63,7 +63,8 @@ public static class StealthHeaderBuilder
         return new Dictionary<string, object>(StringComparer.Ordinal)
         {
             ["userAgent"] = BuildUserAgent(profile),
-            ["acceptLanguage"] = BuildAcceptLanguage(profile),
+            // Match Playwright's context locale; HTTP quality weights are not navigator language tags.
+            ["acceptLanguage"] = profile.Locale,
             ["platform"] = profile.Platform,
             ["userAgentMetadata"] = BuildUserAgentMetadata(profile)
         };
