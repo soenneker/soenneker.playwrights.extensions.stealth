@@ -49,6 +49,6 @@
         <PackageReference Include="Soenneker.Asyncs.Semaphores" Version="4.0.28" />
         <PackageReference Include="Soenneker.Extensions.String" Version="4.0.781" />
         <PackageReference Include="Soenneker.Extensions.Task" Version="4.0.134" />
-        <PackageReference Include="Soenneker.Extensions.ValueTask" Version="4.0.127" />
+        <PackageReference Include="Soenneker.Extensions.ValueTask" Version="4.0.132" />
 </ItemGroup>
 </Project>
