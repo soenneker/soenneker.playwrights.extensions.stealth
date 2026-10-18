@@ -48,6 +48,7 @@ internal sealed class StealthCdpRelay : IAsyncDisposable
         catch (OperationCanceledException) { }
         catch (WebSocketException) { }
         catch (IOException) { }
+        catch (ObjectDisposedException) when (_stop.IsCancellationRequested) { }
     }
 
     private async Task RunAsync()
@@ -103,6 +104,8 @@ internal sealed class StealthCdpRelay : IAsyncDisposable
                     try { await Task.WhenAll(requests, responses).ConfigureAwait(false); }
                     catch (OperationCanceledException) { }
                     catch (WebSocketException) { }
+                    // Abort can dispose ClientWebSocket while its receive loop is still unwinding.
+                    catch (ObjectDisposedException) when (connection.IsCancellationRequested) { }
                 }
             }
             return;

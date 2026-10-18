@@ -66,6 +66,22 @@ public sealed class StealthRuntimeTests
     }
 
     [Test]
+    public async Task RepeatedBrowserTeardownPreservesCompletedOperations()
+    {
+        using IPlaywright playwright = await Playwright.CreateAsync();
+        for (int attempt = 0; attempt < 20; attempt++)
+        {
+            await using IBrowser browser = await playwright.LaunchStealthChromium(new BrowserTypeLaunchOptions { Headless = true });
+            await using IBrowserContext context = await browser.NewContextAsync();
+            IPage page = await context.NewPageAsync();
+            (await page.EvaluateAsync<int>("21 * 2")).Should().Be(42);
+            await context.CloseAsync();
+            await browser.CloseAsync();
+            await browser.CloseAsync();
+        }
+    }
+
+    [Test]
     [LocalOnly]
     public async Task HardenedBrowserSupportsPagesFramesWorkersAndClosesItsProcess()
     {
