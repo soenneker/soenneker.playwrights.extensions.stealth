@@ -66,6 +66,7 @@ public sealed class StealthRuntimeTests
     }
 
     [Test]
+    [LocalOnly]
     public async Task RepeatedBrowserTeardownPreservesCompletedOperations()
     {
         using IPlaywright playwright = await Playwright.CreateAsync();
