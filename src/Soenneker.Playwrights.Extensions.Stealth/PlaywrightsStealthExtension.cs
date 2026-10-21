@@ -132,6 +132,45 @@ public static class PlaywrightsStealthExtension
         return await ApplyStealthCore(context, contextOptions, stealthOptions, hardwareProfile).NoSync();
     }
 
+    /// <summary>
+    /// Replaces a context with a fresh stealth context on the same running browser, then closes the old context and its pages.
+    /// Generates a new hardware profile and starts without saved storage state. This does not guarantee an unlinkable identity.
+    /// </summary>
+    /// <param name="context">The context to replace. Persistent contexts without an owning browser are not supported.</param>
+    /// <param name="options">Options for the replacement. Previous context options are not retained; storage state is always ignored.
+    /// Explicit profile values such as User-Agent and viewport override newly generated values.</param>
+    /// <param name="stealthOptions">Stealth settings for the replacement; when null, defaults are used. Supply any context proxy again here or in <paramref name="options"/>.</param>
+    /// <returns>The replacement context. Create new pages from this context; existing page references cannot be reused.</returns>
+    /// <remarks>
+    /// The old context remains open if replacement creation fails. Routes, event handlers, bindings, and custom init scripts
+    /// are not transferred. Browser-level settings and the network identity remain unchanged.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="context"/> is null.</exception>
+    /// <exception cref="InvalidOperationException">The context has no owning browser.</exception>
+    public static async ValueTask<IBrowserContext> ResetStealthContext(this IBrowserContext context,
+        BrowserNewContextOptions? options = null, StealthContextOptions? stealthOptions = null)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        IBrowser browser = context.Browser ?? throw new InvalidOperationException("Cannot reset a context without an owning browser.");
+
+        var replacementOptions = options is null ? new BrowserNewContextOptions() : new BrowserNewContextOptions(options);
+        replacementOptions.StorageState = null;
+        replacementOptions.StorageStatePath = null;
+
+        IBrowserContext replacement = await CreateStealthContextCore(browser, replacementOptions, stealthOptions).NoSync();
+
+        try
+        {
+            await context.CloseAsync().NoSync();
+            return replacement;
+        }
+        catch
+        {
+            await replacement.CloseAsync().NoSync();
+            throw;
+        }
+    }
+
     private static async ValueTask<IBrowserContext> ApplyStealthCore(IBrowserContext context, BrowserNewContextOptions? contextOptions,
         StealthContextOptions? stealthOptions, HardwareProfile? hardwareProfile)
     {
