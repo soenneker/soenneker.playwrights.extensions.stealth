@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
         <Nullable>enable</Nullable>
         <IsAotCompatible>true</IsAotCompatible>
         <Platforms>AnyCPU</Platforms>
@@ -9,7 +9,7 @@
 
     <PropertyGroup>
         <Description>A collection of Playwright extensions for more stealthy usage</Description>
-        <Version Condition="'$(BUILD_VERSION)' == ''">4.0.0</Version>
+        <Version Condition="'$(BUILD_VERSION)' == ''">11.0.0</Version>
         <Version Condition="'$(BUILD_VERSION)' != ''">$(BUILD_VERSION)</Version>
         <AssemblyName>Soenneker.Playwrights.Extensions.Stealth</AssemblyName>
         <PackageId>Soenneker.Playwrights.Extensions.Stealth</PackageId>
@@ -47,7 +47,7 @@
     <ItemGroup>
         <PackageReference Include="Microsoft.Playwright" Version="1.64.1" />
         <PackageReference Include="Soenneker.Asyncs.Semaphores" Version="4.0.33" />
-        <PackageReference Include="Soenneker.Extensions.String" Version="4.0.799" />
+        <PackageReference Include="Soenneker.Extensions.String" Version="4.0.800" />
         <PackageReference Include="Soenneker.Extensions.Task" Version="4.0.140" />
         <PackageReference Include="Soenneker.Extensions.ValueTask" Version="4.0.133" />
 </ItemGroup>
