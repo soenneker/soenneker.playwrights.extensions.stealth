@@ -16,7 +16,7 @@
         <PackageReference Include="Soenneker.Playwrights.Installation" Version="11.0.246" />
         <PackageReference Include="Soenneker.Utils.Delay" Version="11.0.108" />
         <PackageReference Include="Soenneker.Utils.Test" Version="11.0.345" />
-        <PackageReference Include="Soenneker.Tests.HostedUnit" Version="11.0.360" />
+        <PackageReference Include="Soenneker.Tests.HostedUnit" Version="11.0.362" />
         <PackageReference Include="TUnit" Version="1.81.10" />
     </ItemGroup>
 
