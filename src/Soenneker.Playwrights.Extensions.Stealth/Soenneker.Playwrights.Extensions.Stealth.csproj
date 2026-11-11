@@ -48,7 +48,7 @@
         <PackageReference Include="Microsoft.Playwright" Version="1.64.1" />
         <PackageReference Include="Soenneker.Asyncs.Semaphores" Version="11.0.36" />
         <PackageReference Include="Soenneker.Extensions.String" Version="11.0.814" />
-        <PackageReference Include="Soenneker.Extensions.Task" Version="11.0.142" />
+        <PackageReference Include="Soenneker.Extensions.Task" Version="11.0.143" />
         <PackageReference Include="Soenneker.Extensions.ValueTask" Version="11.0.135" />
 </ItemGroup>
 </Project>
